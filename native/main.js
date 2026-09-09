@@ -5,6 +5,7 @@ const svc = require("./services");
 
 let win = null;
 let updater = null;
+let updateDownloaded = false;
 
 function loadUpdater() {
   if (updater || !app.isPackaged) return updater;
@@ -13,10 +14,12 @@ function loadUpdater() {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.on("error", (e) => console.warn("[updater]", e.message));
+    autoUpdater.on("update-downloaded", () => { updateDownloaded = true; });
     updater = autoUpdater;
   } catch (e) { console.warn("[updater] unavailable:", e.message); }
-  return updater;
-}
+  return updater; }
+exports.loadUpdater = loadUpdater;
+exports.updateDownloadedFlag = () => updateDownloaded;
 
 // daily update check (PRD): check on start, then every 24h
 function startUpdateLoop() {
@@ -51,7 +54,7 @@ app.on("second-instance", () => { if (win) { win.show(); win.focus(); } });
 
 app.whenReady().then(() => {
   createWindow();
-  svc.registerIpc(ipcMain, () => win, loadUpdater);
+  svc.registerIpc(ipcMain, () => win, loadUpdater, () => updateDownloaded);
   startUpdateLoop();
   if (app.isPackaged) loadUpdater()?.checkForUpdates().catch(() => {});
 });

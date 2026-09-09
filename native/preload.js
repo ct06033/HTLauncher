@@ -24,5 +24,6 @@ contextBridge.exposeInMainWorld("tvnative", {
   setAutostart: h("svc:autostart"),
   checkForUpdates: h("svc:check-updates"),
   installUpdate: h("svc:install-update"),
+  appVersion: h("svc:version"),
   onEvent: (fn) => ipcRenderer.on("svc:event", (_e, payload) => fn(payload)),
 });

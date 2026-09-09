@@ -513,7 +513,7 @@ function app_version() {
 }
 
 /* ================= IPC registration ================= */
-function registerIpc(ipcMain, getWindow, getUpdater) {
+function registerIpc(ipcMain, getWindow, getUpdater, getUpdateDownloaded) {
   const h = (ch, fn) => ipcMain.handle(ch, async (_e, ...args) => {
     try { return await fn(...args); }
     catch (err) { return { ok: false, error: String(err && err.message || err) }; }
@@ -537,6 +537,7 @@ function registerIpc(ipcMain, getWindow, getUpdater) {
   h("svc:pick-wallpaper", pickWallpaper);
   h("svc:wp-dir", listWallpaperDir);
   h("svc:autostart", setAutostart);
+  h("svc:version", async () => app_version());
   h("svc:check-updates", async () => {
     const u = getUpdater && getUpdater();
     if (!u) return { available: false, version: app_version() };
@@ -549,7 +550,19 @@ function registerIpc(ipcMain, getWindow, getUpdater) {
   h("svc:install-update", async () => {
     const u = getUpdater && getUpdater();
     if (!u) return { ok: false, error: "updater unavailable" };
-    try { u.quitAndInstall(); return { ok: true }; }
+    try {
+      // wait (up to 2 min) for the background download to finish before restarting
+      const dl = (getUpdateDownloaded && getUpdateDownloaded()) || (await new Promise((res) => {
+        const t0 = Date.now();
+        const iv = setInterval(() => {
+          if (getUpdateDownloaded && getUpdateDownloaded()) { clearInterval(iv); res(true); }
+          else if (Date.now() - t0 > 120000) { clearInterval(iv); res(false); }
+        }, 1000);
+      }));
+      if (!dl) return { ok: false, error: "download still in progress — try again in a minute" };
+      u.quitAndInstall(false, true);
+      return { ok: true };
+    }
     catch (e) { return { ok: false, error: String(e.message || e) }; }
   });
   h("svc:power", async (kind) => {

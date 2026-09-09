@@ -479,7 +479,14 @@ window.App = (() => {
         wp.mode === "dir" ? `random rotation · every ${wp.intervalMin}m` : wp.mode === "image" ? wp.path : "");
       setRow("Pages", (() => { const w = document.createElement("div"); w.className = "dim";
         w.textContent = s.pages.filter(Boolean).join(" · "); return w; })());
-      setRow("Reset TVShell", (() => { const b = document.createElement("div");
+      const verRow = setRow("Check for updates", (() => { const b = document.createElement("div");
+        b.className = "btn focusable"; b.textContent = "Check";
+        b.addEventListener("click", () => checkForUpdatesUI(b)); return b; })(),
+        "installed version …");
+      if (Bridge.appVersion) Bridge.appVersion().then(v => {
+        const sub = verRow.querySelector(".sub"); if (sub && v) sub.textContent = "installed version " + v;
+      });
+      setRow("Reset HTLauncher", (() => { const b = document.createElement("div");
         b.className = "btn danger focusable"; b.textContent = "Clear all data";
         b.addEventListener("click", () => UI.menu([{ label: "Confirm — wipe settings & tiles", danger: true,
           onPick() { localStorage.clear(); location.reload(); } }])); return b; })());
@@ -562,6 +569,30 @@ window.App = (() => {
       wallpaperTimer = setTimeout(function loop() { rotate(); wallpaperTimer = setTimeout(loop, ms); }, ms);
     } else {
       el.style.backgroundImage = "linear-gradient(160deg,#0b0e14,#131a2a 60%,#0d1522)";
+    }
+  }
+
+  /* =============== updates =============== */
+  async function checkForUpdatesUI(btn) {
+    if (btn.dataset.busy) return;
+    btn.dataset.busy = "1";
+    const orig = btn.textContent;
+    btn.textContent = "Checking…";
+    try {
+      const r = await Bridge.checkForUpdates();
+      if (r.available) {
+        toast("Update " + r.version + " found — installing, app will restart…");
+        btn.textContent = "Installing…";
+        const inst = await Bridge.installUpdate();
+        if (!inst.ok) { toast("Install failed: " + (inst.error || "unknown")); btn.textContent = orig; delete btn.dataset.busy; }
+        // success => electron quits & runs installer
+      } else {
+        toast("You're up to date (" + (r.version || "?") + ")");
+        btn.textContent = orig; delete btn.dataset.busy;
+      }
+    } catch (e) {
+      toast("Update check failed: " + (e.message || e));
+      btn.textContent = orig; delete btn.dataset.busy;
     }
   }
 
