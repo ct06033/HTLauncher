@@ -258,10 +258,19 @@ window.App = (() => {
     ]);
   }
   async function addAppFlow() {
-    UI.picker("Choose an app", await Bridge.listStartMenu(),
-      (app) => {
-        Store.addTile({ type: "app", name: app.name, path: app.path });
-        renderGrid(); toast(`Added ${app.name}`);
+    const apps = await Bridge.listStartMenu();
+    UI.picker("Choose an app", apps,
+      async (app) => {
+        const tile = { type: "app", name: app.name, path: app.path, icon: null };
+        Store.addTile(tile); renderGrid(); toast(`Added ${app.name}`);
+        if (Bridge.appIconFor && app.path && app.path.endsWith(".lnk")) {
+          const ic = await Bridge.appIconFor(app.path);
+          if (ic.iconPath) {
+            const page = App.currentPage ?? 0;
+            const idx = Store.tiles(page).findIndex(t => t.path === app.path);
+            if (idx >= 0) { Store.updateTile(page, idx, { icon: ic.iconPath }); renderGrid(); }
+          }
+        }
       },
       (a) => `<div class="r-icon">${UI.ICONS.app}</div><div class="r-label">${UI.escapeHtml(a.name)}</div>`);
   }
@@ -531,24 +540,29 @@ window.App = (() => {
   }
 
   /* =============== wallpaper rotation =============== */
-  function setupWallpaper() {
-    clearInterval(wallpaperTimer);
+  async function setupWallpaper() {
+    clearTimeout(wallpaperTimer);
     const el = document.getElementById("wallpaper");
     const wp = Store.state.wallpaper;
-    const urlFor = (ref) => Bridge.wallpaperUrl(ref) || ref;
+    const urlFor = (ref) => Bridge.wallpaperUrl(ref) || "linear-gradient(160deg,#0b0e14,#131a2a)";
     if (wp.mode === "image" && wp.path) {
       el.style.backgroundImage = `url("${urlFor(wp.path)}")`;
     } else if (wp.mode === "dir") {
-      wallpaperPool = Bridge.mockWallpapers.map(m => "mock:" + m); // native: dir listing (phase 5)
+      try {
+        wallpaperPool = (Bridge.backend === "native" && Bridge.listWallpaperDir)
+          ? await Bridge.listWallpaperDir(wp.dir)
+          : Bridge.mockWallpapers.map(m => "mock:" + m);
+      } catch (e) { wallpaperPool = []; }
+      if (!wallpaperPool.length) { el.style.backgroundImage = "none"; return; }
       const rotate = () => {
         wallpaperIdx = Math.floor(Math.random() * wallpaperPool.length);
-        const next = document.createElement("div");
         el.style.backgroundImage = `url("${urlFor(wallpaperPool[wallpaperIdx])}")`;
       };
       rotate();
-      wallpaperTimer = setInterval(rotate, Math.max(1, wp.intervalMin) * 60 * 1000 / 60); // dev: /60 for demo
+      const ms = Math.max(1, wp.intervalMin) * 60 * 1000;
+      wallpaperTimer = setTimeout(function loop() { rotate(); wallpaperTimer = setTimeout(loop, ms); }, ms);
     } else {
-      el.style.backgroundImage = Bridge.mockWallpapers.length && false ? "" : "linear-gradient(160deg,#0b0e14,#131a2a 60%,#0d1522)";
+      el.style.backgroundImage = "linear-gradient(160deg,#0b0e14,#131a2a 60%,#0d1522)";
     }
   }
 

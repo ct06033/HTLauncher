@@ -1,0 +1,28 @@
+/* Exposes tvnative on the renderer's window (contextIsolation-safe). */
+const { contextBridge, ipcRenderer } = require("electron");
+const h = (ch) => (...args) => ipcRenderer.invoke(ch, ...args);
+contextBridge.exposeInMainWorld("tvnative", {
+  getVolume: h("svc:volume-get"),
+  ensureMaxVolume: h("svc:volume-set-max"),
+  networkStatus: h("svc:net-status"),
+  networkScan: h("svc:net-scan"),
+  networkConnect: h("svc:net-connect"),
+  btStatus: h("svc:bt-status"),
+  btKnown: h("svc:bt-known"),
+  btToggle: h("svc:bt-toggle"),
+  btConnect: h("svc:bt-connect"),
+  btDisconnect: h("svc:bt-disconnect"),
+  listStartMenu: h("svc:startmenu"),
+  launchApp: h("svc:launch-app"),
+  runCommand: h("svc:run-cmd"),
+  openWebApp: h("svc:open-webapp"),
+  faviconFor: h("svc:favicon"),
+  appIconFor: h("svc:app-icon"),
+  power: h("svc:power"),
+  pickWallpaper: h("svc:pick-wallpaper"),
+  listWallpaperDir: h("svc:wp-dir"),
+  setAutostart: h("svc:autostart"),
+  checkForUpdates: h("svc:check-updates"),
+  installUpdate: h("svc:install-update"),
+  onEvent: (fn) => ipcRenderer.on("svc:event", (_e, payload) => fn(payload)),
+});

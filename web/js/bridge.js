@@ -2,7 +2,7 @@
  * In a browser: MOCK (fake data, console logs) so the whole UI is testable.
  * In Electron: window.tvnative (preload -> IPC -> PowerShell/netsh/edge). Phase 5. */
 (() => {
-  const isNative = typeof window.tvnative !== "undefined";
+    const isNative = typeof window.tvnative !== "undefined";
 
   /* ---------------- mock data ---------------- */
   const MOCK = {
@@ -74,9 +74,23 @@
     async setAutostart(on) { console.log("[mock] autostart =", on); return { ok: true }; },
     async checkForUpdates() { await delay(800);
       return { available: false, version: "1.0.0" }; },
-    wallpaperUrl(ref) { return ref && ref.startsWith("mock:") ? "assets/" + ref.slice(5) : null; },
+    wallpaperUrl(ref) { return ref && ref.startsWith("mock:") ? "assets/" + ref.slice(5) : (ref || null); },
     mockWallpapers: ["wallpapers/space.svg", "wallpapers/dunes.svg", "wallpapers/forest.svg"],
   };
 
-  window.Bridge = isNative ? Object.assign(Mock, window.tvnative, { backend: "native" }) : Mock;
+  // Native-side additions the mock doesn't need: real wallpaper dirs + app icons
+  const nativeExtras = {
+    appIconFor: (lnk) => window.tvnative.appIconFor ? window.tvnative.appIconFor(lnk) : { iconPath: null },
+    mockWallpapers: [],
+  };
+  window.Bridge = isNative
+    ? Object.assign({}, Mock, window.tvnative, nativeExtras, { backend: "native" })
+    : Mock;
+  if (isNative) {
+    window.Bridge.wallpaperUrl = (ref) => (ref && ref.startsWith("mock:")) ? "assets/" + ref.slice(5)
+      : (ref && (ref.startsWith("file") || ref.startsWith("assets/") || ref.startsWith("data:"))) ? ref
+      : ref ? "file:///" + String(ref).replace(/^\//, "").replace(/\\/g, "/") : null;
+    window.Bridge.listWallpaperDir = async (dir) =>
+      window.tvnative.listWallpaperDir ? window.tvnative.listWallpaperDir(dir) : [];
+  }
 })();
