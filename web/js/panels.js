@@ -56,9 +56,10 @@ function bars(n) {
 
 /* ---------- slide-over panel ---------- */
 function slideOver(title, buildBody) {
-    const host = document.getElementById("panel-host");
-    if (slideOver.active) slideOver.active.close();   // replace any open panel
-    host.innerHTML = "";
+  const host = document.getElementById("panel-host");
+  if (slideOver.active) slideOver.active.close();   // replace any open panel
+  host.innerHTML = "";
+  let opener = null;   // icon that opened this panel — snap focus back on close
   const panel = document.createElement("div"); panel.className = "panel";
   const h = document.createElement("h2"); h.textContent = title;
   const body = document.createElement("div");
@@ -88,11 +89,16 @@ function slideOver(title, buildBody) {
     host.innerHTML = "";
     if (slideOver.active === api) slideOver.active = null;
     Nav.remove ? Nav.remove(layer) : Nav.pop();
+    // snap focus back to the icon that opened this panel (keyboard or mouse)
+    if (opener && document.contains(opener) && Nav.top() && Nav.top().id === "home")
+      Nav.setFocus(opener);
   }
   function escHandler(e) { if (e.key === "Escape") { e.preventDefault(); close(); } }
   document.addEventListener("keydown", escHandler, true);
   const api = { close, panel };
-  Promise.resolve(entries).then(() => { if (host.contains(panel)) Nav.push(layer); });
+  Promise.resolve(entries).then(() => {
+    if (host.contains(panel)) { opener = Nav.current; Nav.push(layer); }
+  });
   slideOver.active = api;
   return api;
 }

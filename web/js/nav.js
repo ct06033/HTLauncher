@@ -150,18 +150,19 @@ window.Nav = (() => {
     }
   }, true);
 
-  // Mouse/touch convenience. Elements with their own click listeners (rows,
-  // tiles, toggles, keys…) would fire TWICE if we also activated here, so we
-  // only move focus for those. Modal menu/dialog items have no own listener —
-  // they activate through the layer, so route those clicks to activate().
+  // Mouse/touch convenience. Remote semantics for clicks: highlight FIRST
+  // (capture phase — before the element's own click listener runs), then the
+  // element's listener acts. Elements with their own listeners (rows, tiles,
+  // toggles, buttons…) would fire TWICE if we also activated here, so we only
+  // activate modal menu/dialog items, which have no listener of their own.
   document.addEventListener("click", (e) => {
     if (!e.isTrusted) return;
     const el = e.target.closest(".focusable, .tile, .row, .menu-item, .key, .btn, .fc-day, .page-tab, .f-value, .toggle");
     const t = top();
     if (!el || !t || !els(t).includes(el)) return;
     setFocus(el);
-    if (el.closest("#modal-host")) activate();
-  });
+    if (el.closest("#modal-host")) queueMicrotask(() => { if (top() === t) activate(); });
+  }, true);
 
   return { push, pop, setFocus, activate, depth, inOsk, top,
     get current() { return current; }, move };
