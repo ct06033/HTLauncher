@@ -375,7 +375,7 @@ try {
   $src = if ($sh.TargetPath -and (Test-Path $sh.TargetPath)) { $sh.TargetPath } else { $lnk }
   $ico = [System.Drawing.Icon]::ExtractAssociatedIcon($src)
   $bmp = $ico.ToBitmap()
-  $out = Join-Path '${cacheDir().replace(/\\/g, "\\\\")}' ((Get-Item $src).BaseName + '.png')
+  $out = Join-Path '${cacheDir().replace(/'/g, "''")}' ((Get-Item $src).BaseName + '.png')
   $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
   $uri = ('file:///' + ($out -replace '\\\\','/')) -replace ' ', '%20'
   '{"iconPath":"' + $uri + '"}'
