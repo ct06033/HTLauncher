@@ -112,10 +112,15 @@ function menu(items, anchorRect) {
   host.append(m);
   const layer = {
     id: "menu", grid: els.map(e => [e]),
-    onActivate(el) { const it = items[+el.dataset.idx]; close(); it.onPick && it.onPick(); },
+    onActivate(el) {
+      const it = items[+el?.dataset?.idx];
+      if (!it) { close(); return; }
+      close(); it.onPick && it.onPick();
+    },
     onBack() { close(); },
     onHome() { close(); App.goHome(); },
-    restore: (setF) => App.refreshGrid(),
+    onExit() { host.innerHTML = ""; },   // Home key pops us without calling close()
+    restore: () => App.refreshGrid(),
   };
   function close() { host.innerHTML = ""; Nav.pop(); }
   Nav.push(layer);
@@ -177,23 +182,25 @@ function dialog(title, buildForm, onSubmit) {
     },
     onBack() { close(); },
     onHome() { close(); App.goHome(); },
+    onExit() { host.innerHTML = ""; },   // Home key pops us without calling close()
   };
-  function close() { host.innerHTML = ""; Nav.pop(); }
+  function close() { if (host.contains(m)) { host.innerHTML = ""; } if (Nav.top() === layer) Nav.pop(); }
   Nav.push(layer);
   function escapeHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
 }
 
 function picker(title, items, onPick, render) {
-  slideOver(title, (body) => {
+  const api = slideOver(title, (body) => {
     const list = document.createElement("div"); list.className = "picker";
     items.forEach((it, i) => {
       const row = document.createElement("div"); row.className = "row focusable";
       row.innerHTML = render ? render(it) : `<div class="r-label">${it.label || it}</div>`;
-      row.addEventListener("click", () => onPick(it, i));
+      row.addEventListener("click", () => { api.close(); onPick(it, i); });
       list.append(row);
     });
     body.append(list);
   });
+  return api;
 }
 
 window.UI = { ICONS, WX, wxIcon, wxLabel, bars, slideOver, menu, dialog, picker, escapeHtml };

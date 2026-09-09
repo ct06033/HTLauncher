@@ -84,6 +84,7 @@
       host.innerHTML = "";
       active = null;
       if (Nav.top() === layer) Nav.pop();
+      else Nav.remove(layer);
       if (!silent && opts.onCancel) opts.onCancel();
     }
 

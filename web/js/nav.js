@@ -37,8 +37,17 @@ window.Nav = (() => {
   function setFocus(el) {
     if (!el) return;
     if (current) current.classList.remove("focused");
+    // safety net: drop any leftover highlight from push/pop paths that reset
+    // `current` without clearing the class (only one element may be focused)
+    [...document.querySelectorAll(".focused")].forEach(e => { if (e !== el) e.classList.remove("focused"); });
     current = el;
     el.classList.add("focused");
+    const l = top();
+    if (l) {                       // remember per-layer focus for restore
+      l._last = el;
+      l._lastKey = el.id ? "#" + el.id
+        : el.classList.contains("tile") ? `.tile[data-idx="${el.dataset.idx}"]` : null;
+    }
     el.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
   }
 
@@ -76,7 +85,12 @@ window.Nav = (() => {
   function activate() { const l = top(); if (l && l.onActivate) l.onActivate(current); }
   function menu() { const l = top(); if (l && l.onMenu) l.onMenu(current); else if (l && l.onActivate && !l.grid) l.onActivate(current); }
   function back() { const l = top(); if (l && l.onBack) l.onBack(); }
-  function home() { const l = stack.find(x => x.onHome); if (l && l.onHome) l.onHome(); }
+  function home() {
+    // topmost layer with an onHome gets first refusal (overlays clean up,
+    // then their onHome typically calls App.goHome() which unwinds the rest)
+    for (let i = stack.length - 1; i >= 0; i--)
+      if (stack[i].onHome) return stack[i].onHome();
+  }
 
   function push(layer) {
     stack.push(layer);
@@ -90,7 +104,15 @@ window.Nav = (() => {
     if (gone && gone.onExit) gone.onExit();
     current = null;
     const l = top();
-    if (l) { l.restore ? l.restore(setFocus) : setFocus(els(l)[0]); }
+    if (!l) return;
+    if (l.restore) return l.restore(setFocus);
+    // default restore: return to the element this layer had focused before,
+    // re-resolving tile references (renderGrid may have replaced the DOM node)
+    let el = l._last && document.contains(l._last) ? l._last
+           : l._lastKey ? document.querySelector(l._lastKey) : null;
+    const pool = els(l);
+    if (!el || !pool.includes(el)) el = l.initial ? l.initial() : pool[0];
+    setFocus(el);
   }
   function remove(layer) {
     // close a layer even if newer layers were stacked over it
@@ -110,7 +132,8 @@ window.Nav = (() => {
     // OSK layer text handling happens inside its own listener; here only navigation keys when OSK not typing
     if (m.sleep) { e.preventDefault(); App.onSleepCombo(); return; }
     if (m.home) { e.preventDefault(); home(); return; }
-    if (m.back && l.id !== "osk") { e.preventDefault(); back(); return; }
+    const backPressed = m.back || (e.key === "Escape" && l.id !== "osk");
+    if (backPressed && l.id !== "osk") { e.preventDefault(); back(); return; }
     if (m.back && l.id === "osk" && !l.hasText()) { e.preventDefault(); l.onBack(); return; }
     if (m.pageUp) { e.preventDefault(); App.flipPage(-1); return; }
     if (m.pageDown) { e.preventDefault(); App.flipPage(1); return; }
@@ -127,13 +150,17 @@ window.Nav = (() => {
     }
   }, true);
 
-  // click/touch mirrors focus-then-activate (dev convenience). Only trusted
-  // pointer clicks — programmatic el.click() from onActivate must not re-enter.
+  // Mouse/touch convenience. Elements with their own click listeners (rows,
+  // tiles, toggles, keys…) would fire TWICE if we also activated here, so we
+  // only move focus for those. Modal menu/dialog items have no own listener —
+  // they activate through the layer, so route those clicks to activate().
   document.addEventListener("click", (e) => {
     if (!e.isTrusted) return;
     const el = e.target.closest(".focusable, .tile, .row, .menu-item, .key, .btn, .fc-day, .page-tab, .f-value, .toggle");
     const t = top();
-    if (el && t && els(t).includes(el)) { setFocus(el); activate(); }
+    if (!el || !t || !els(t).includes(el)) return;
+    setFocus(el);
+    if (el.closest("#modal-host")) activate();
   });
 
   return { push, pop, setFocus, activate, depth, inOsk, top,

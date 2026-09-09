@@ -44,12 +44,17 @@ window.App = (() => {
       },
       onBack() { /* already home; PRD: back at top level does nothing visible */ },
       onHome() { goHome(); },
-      restore: (setF) => setF(Nav.current && document.contains(Nav.current) ? Nav.current : firstGridEl()),
     });
   }
   function firstGridEl() { return homeGrid().flat()[0]; }
   function goHome() {
-    while (Nav.depth() > 1) Nav.pop();
+    while (Nav.depth() > 1) {
+      const before = Nav.depth();
+      const l = Nav.top();
+      // let layers with their own teardown run it (it pops or removes itself)
+      if (l && l.onBack) l.onBack();
+      if (Nav.depth() === before) Nav.pop();   // onBack was a no-op → force pop
+    }
     renderGrid();
     Nav.setFocus(firstGridEl());
   }
@@ -139,6 +144,7 @@ window.App = (() => {
       id: "forecast", grid: [ [...grid.children] ],
       onActivate: closeForecast, onBack: closeForecast,
       onHome() { closeForecast(); goHome(); },
+      onExit() { host.classList.add("hidden"); },
     };
     Nav.push(layer);
     Nav.setFocus(grid.children[0]);
@@ -207,8 +213,11 @@ window.App = (() => {
       cells.slice(i, i + 7).forEach(c => row.append(c));
       wrap.append(row);
     }
-    if (Nav.top() && Nav.top().id === "home") {
-      Nav.setFocus(wrap.querySelector(".tile") || wrap.querySelector(".add-tile"));
+    // NOTE: never move focus here — renderGrid runs mid-flow (add/delete/
+    // reorder) and stealing focus caused phantom highlights on layer pop.
+    if (!document.querySelector(".focused")) {
+      const first = wrap.querySelector(".tile") || wrap.querySelector(".add-tile");
+      if (first && Nav.top() && Nav.top().id === "home") Nav.setFocus(first);
     }
   }
   function tileEl(t, idx) {
