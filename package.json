@@ -4,7 +4,7 @@
   "description": "HTLauncher — Google TV-like remote-driven shell for Windows big screens",
   "main": "native/main.js",
   "author": "caspar",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",

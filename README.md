@@ -112,4 +112,4 @@ Vibecoded with **Qwen 3.8 Flash** 🤖 — this is my first project, so be kind,
 
 ## License
 
-MIT
+GPL-3.0-only (see LICENSE)
