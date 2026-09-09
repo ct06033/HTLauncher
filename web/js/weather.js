@@ -17,12 +17,23 @@ window.Weather = (() => {
       emit(); return;
     }
     try {
-      let lat = 40.71, lon = -74.0;
-      try {
-        const g = await new Promise((res, rej) =>
-          navigator.geolocation.getCurrentPosition(p => res(p.coords), rej, { timeout: 4000 }));
-        lat = g.latitude; lon = g.longitude;
-      } catch (e) { /* default NYC */ }
+      let lat = null, lon = null;
+      if (Bridge.backend === "native") {
+        // NEVER use navigator.geolocation in the packaged app — Windows pops a
+        // consent dialog (breaks the no-interaction rule). IP-based instead.
+        try {
+          const r = await fetch("https://freeipapi.com/api/json", { signal: AbortSignal.timeout(5000) });
+          const j = await r.json();
+          if (j.latitude && j.longitude) { lat = j.latitude; lon = j.longitude; }
+        } catch (e) { console.warn("ip-geo failed:", e.message); }
+      } else {
+        try {
+          const g = await new Promise((res, rej) =>
+            navigator.geolocation.getCurrentPosition(p => res(p.coords), rej, { timeout: 4000 }));
+          lat = g.latitude; lon = g.longitude;
+        } catch (e) { /* browser denied/unavailable */ }
+      }
+      if (lat === null) { lat = 40.71; lon = -74.0; Store.state.__mockWeather = true; return refresh(); }
       const u = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
         `&current=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=6&timezone=auto`;
       const r = await fetch(u); if (!r.ok) throw new Error("wx " + r.status);
