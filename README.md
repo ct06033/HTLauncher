@@ -62,7 +62,7 @@ Every mapping is editable in **Settings → Keyboard mapping** — press a butto
 
 ## Installing
 
-1. Download the latest `HTLauncher Setup x.y.z.exe` from [Releases](https://github.com/ct06033/HTLauncher/releases).
+1. Download the latest `HTLauncher-Setup-x.y.z.exe` from [Releases](https://github.com/ct06033/HTLauncher/releases).
 2. Run it. It's one-click, installs machine-wide, and launches HTLauncher when it finishes.
 3. Recommended for a true appliance feel:
    - Enable Windows auto-login (`netplwiz`) so a reboot lands you straight in the launcher
