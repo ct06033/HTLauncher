@@ -261,6 +261,8 @@ try {
 
 /* ================= start menu + launching ================= */
 async function listStartMenu() {
+  // .lnk shortcuts + Store/AppsFolder apps (Netflix etc. have no .lnk).
+  // Dedupe by display name; a real .lnk wins over an AppsFolder face.
   const script = `
 $ErrorActionPreference='SilentlyContinue'
 $dirs = @(
@@ -273,19 +275,51 @@ $res = foreach ($dir in $dirs) {
     $k = $_.BaseName.ToLower()
     if (-not $seen[$k] -and $_.BaseName -notmatch '^(Uninstall|Change|Modify|Repair)') {
       $seen[$k] = $true
-      [pscustomobject]@{ name=$_.BaseName; lnk=$_.FullName }
+      [pscustomobject]@{ name=$_.BaseName; lnk=$_.FullName; aumid=$null }
     }
   }
 }
-ConvertTo-Json -Compress -InputObject @($res)
+$store = Get-StartApps | Where-Object { $_.AppID -match '!' -and $_.Name -and $_.Name.Trim() } |
+  Where-Object { -not $seen[$_.Name.ToLower()] -and $_.Name -notmatch '^(Uninstall|Change|Modify|Repair|Game Bar|Get Help|Get Started|Feedback Hub|Click to Do|Windows)'} |
+  Select-Object -Unique Name | ForEach-Object {
+    $seen[$_.Name.ToLower()] = $true
+    [pscustomobject]@{ name=$_.Name; lnk=$null; aumid=$null }
+  }
+$all = @($res; $store) | Sort-Object name
+ConvertTo-Json -Compress -InputObject $all
 `;
   const r = await ps(script, 60000);
   const list = Array.isArray(r.data) ? r.data : (r.data ? [r.data] : []);
-  return list.filter(Boolean).map(a => ({ name: a.name, path: a.lnk, lnk: a.lnk }));
+  const apps = list.filter(Boolean).map(a =>
+    ({ name: a.name, path: a.lnk || "appsfolder:" + a.name, lnk: a.lnk, aumid: a.aumid || null }));
+  // resolve AUMIDs for store entries in one extra pass (needed for launching)
+  const storeNames = apps.filter(a => !a.lnk).map(a => a.name);
+  if (storeNames.length) {
+    const map = await resolveAumids(storeNames);
+    for (const a of apps) if (!a.lnk && map[a.name]) { a.aumid = map[a.name]; a.path = "appsfolder:" + map[a.name]; }
+  }
+  return apps;
+}
+async function resolveAumids(names) {
+  const lit = names.map(n => "'" + q(n) + "'").join(",");
+  const script = `
+$ErrorActionPreference='SilentlyContinue'
+$want = @(${lit})
+$sa = Get-StartApps | Where-Object { $_.AppID -match '!' }
+$out = @{}
+foreach ($n in $want) {
+  $m = $sa | Where-Object { $_.Name -eq $n } | Select-Object -First 1
+  if ($m) { $out[$n] = $m.AppID }
+}
+$out | ConvertTo-Json -Compress
+`;
+  const r = await ps(script, 30000);
+  return (r.ok && typeof r.data === "object" && r.data) ? r.data : {};
 }
 async function launchApp(app) {
   try {
-    const child = spawn("cmd.exe", ["/c", "start", "", app.path || app.name], { detached: true, windowsHide: false });
+    const target = app.aumid ? "shell:AppsFolder\\" + app.aumid : (app.path || app.name);
+    const child = spawn("cmd.exe", ["/c", "start", "", target], { detached: true, windowsHide: false });
     child.unref();
     return { ok: true };
   } catch (e) { return { ok: false, error: e.message }; }
@@ -364,7 +398,46 @@ function extFor(url, headers) {
   if (/\.(png|jpe?g|svg|ico|webp)/i.test(url)) return path.extname(url.split("?")[0]);
   return ".ico";
 }
-async function appIconFor(lnkPath) {
+async function appIconFor(lnkPath, aumid) {
+  // .lnk -> ExtractAssociatedIcon; Store AUMID -> copy manifest logo PNG
+  if (aumid) {
+    const family = (String(aumid).split("!")[0] || "").split("_")[0];
+    const script = `
+$ErrorActionPreference='Stop'
+try {
+  $f = '${q(family)}'
+  $p = Get-AppxPackage $f -EA Stop | Select-Object -First 1
+  [xml]$x = Get-Content (Join-Path $p.InstallLocation 'AppxManifest.xml')
+  $ns = New-Object System.Xml.XmlNamespaceManager($x.NameTable)
+  $ns.AddNamespace('u','http://schemas.microsoft.com/appx/manifest/uap/windows10')
+  $def = $x.SelectSingleNode('//u:Application/u:VisualAssets/u:Default', $ns)
+  $logoRel = $null
+  if ($def) { foreach ($at in 'Square150x150Logo','Square44x44Logo','Wide310x150Logo') {
+    $v = $def.GetAttribute($at); if ($v) { $logoRel = $v; break } } }
+  if (-not $logoRel) {
+    # manifest layout varies: search whole package for a square-logo PNG, best scale first
+    $all = Get-ChildItem $p.InstallLocation -Filter '*.png' -Recurse -EA SilentlyContinue |
+      Where-Object { $_.Name -match '^Square(150x150|44x44)Logo' -and $_.Name -notmatch 'targetsize|altform-unplated|StoreLogo' }
+    $cand = $all | Where-Object { $_.Name -match 'scale-100' } | Select-Object -First 1
+    if (-not $cand) { $cand = $all | Select-Object -First 1 }
+    if (-not $cand) { $cand = Get-ChildItem $p.InstallLocation -Filter '*.png' -Recurse -EA SilentlyContinue |
+      Where-Object { $_.Name -notmatch 'StoreLogo|Splash|toast|LockScreen| FRE_' } | Sort-Object Length -Descending | Select-Object -First 1 }
+    if ($cand) { $logoRel = $cand.FullName.Substring($p.InstallLocation.Length + 1) }
+  }
+  if (-not $logoRel) { '{"iconPath":null}' } else {
+    $src = Join-Path $p.InstallLocation ($logoRel -replace '/','\\')
+    $dir = '${cacheDir().replace(/'/g, "''")}'
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $out = Join-Path $dir (($f -replace '[^A-Za-z0-9]','') + '.png')
+    Copy-Item $src $out -Force
+    $uri = ('file:///' + ($out -replace '\\\\','/')) -replace ' ', '%20'
+    '{"iconPath":"' + $uri + '"}'
+  }
+} catch { '{"iconPath":null}' }
+`;
+    const r = await ps(script, 30000);
+    return parse(r, { iconPath: null });
+  }
   // Extract icon from .lnk/.exe via .NET Icon.ExtractAssociatedIcon -> PNG file
   const script = `
 $ErrorActionPreference='Stop'

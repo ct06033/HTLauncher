@@ -1,6 +1,6 @@
 {
   "name": "htlauncher",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "HTLauncher — Google TV-like remote-driven shell for Windows big screens",
   "main": "native/main.js",
   "author": "caspar",

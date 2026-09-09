@@ -261,15 +261,14 @@ window.App = (() => {
     const apps = await Bridge.listStartMenu();
     UI.picker("Choose an app", apps,
       async (app) => {
-        const tile = { type: "app", name: app.name, path: app.path, icon: null };
+        const tile = { type: "app", name: app.name, path: app.path, aumid: app.aumid || null, icon: null };
         Store.addTile(tile); renderGrid(); toast(`Added ${app.name}`);
-        if (Bridge.appIconFor && app.path && app.path.endsWith(".lnk")) {
-          const ic = await Bridge.appIconFor(app.path);
-          if (ic.iconPath) {
-            const page = App.currentPage ?? 0;
-            const idx = Store.tiles(page).findIndex(t => t.path === app.path);
-            if (idx >= 0) { Store.updateTile(page, idx, { icon: ic.iconPath }); renderGrid(); }
-          }
+        const ic = (app.aumid || app.lnk) && Bridge.appIconFor
+          ? await Bridge.appIconFor(app.lnk || "", app.aumid || null) : { iconPath: null };
+        if (ic.iconPath) {
+          const page = App.currentPage ?? 0;
+          const idx = Store.tiles(page).findIndex(t => t.type === 'app' && t.name === app.name);
+          if (idx >= 0) { Store.updateTile(page, idx, { icon: ic.iconPath }); renderGrid(); }
         }
       },
       (a) => `<div class="r-icon">${UI.ICONS.app}</div><div class="r-label">${UI.escapeHtml(a.name)}</div>`);
