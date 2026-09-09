@@ -337,7 +337,13 @@ try {
 
 /* ================= power / autostart / wallpaper / updates ================= */
 async function power(kind) {
-  if (kind === "sleep") { ps("try { [System.Windows.Forms.Application]::Idle | Out-Null } catch {}; (New-Object -ComObject Shell.Application).Namespace(0) | Out-Null; rundll32.exe powrprof.dll,SetSuspendState 0,1,0"); return { ok: true }; }
+  if (kind === "sleep") {
+    // rundll32 SetSuspendState with hibernate=false forces sleep. If
+    // hibernation is enabled on the box this hybrid-suspends instead;
+    // checklist notes how to disable (powercfg /h off).
+    execFile("rundll32.exe", ["powrprof.dll,SetSuspendState", "0,1,0"], { windowsHide: true }, () => {});
+    return { ok: true };
+  }
   if (kind === "shutdown") { execFile("shutdown.exe", ["/s", "/t", "3"], () => {}); return { ok: true }; }
   if (kind === "exit") { return { ok: true }; }   // main process handles app.quit()
   return { ok: false, error: "unknown power kind" };

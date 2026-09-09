@@ -19,15 +19,13 @@
     "productName": "TVShell",
     "files": ["native/**/*", "web/**/*", "package.json"],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
-      "icon": "native/icon.ico"
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
     },
     "nsis": {
       "oneClick": true,
       "perMachine": true,
       "deleteAppDataOnUninstall": false,
-      "runAfterFinish": true,
-      "installerIcon": "native/icon.ico"
+      "runAfterFinish": true
     }
   }
 }
