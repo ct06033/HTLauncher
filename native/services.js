@@ -18,7 +18,9 @@ let lastWebApp = null;
 function ps(script, timeoutMs = 20000) {
   return new Promise((resolve) => {
     if (!IS_WIN) return resolve({ ok: false, error: "not-windows" });
-    const encoded = Buffer.from("\uFEFF" + script, "utf16le").toString("base64");
+    // UTF-16LE WITHOUT BOM — a leading BOM becomes a literal '?' char and
+    // breaks the first cmdlet (verified on the Windows test box).
+    const encoded = Buffer.from(script, "utf16le").toString("base64");
     execFile(PS_EXE, [...PS_ARGS, "-EncodedCommand", encoded],
       { timeout: timeoutMs, windowsHide: true, maxBuffer: 8 * 1024 * 1024 },
       (err, stdout, stderr) => {
@@ -33,39 +35,55 @@ const q = (s) => String(s).replace(/'/g, "''");          // SQL-style quote esca
 const parse = (r, fb) => (r.ok && typeof r.data === "object" ? r.data : fb);
 
 /* ================= volume ================= */
-// Windows Core Audio via inline C# (MMDevice API). V11-style interface layout
-// with placeholder methods for the ones we don't call.
+// Windows Core Audio via inline C# (MMDevice API).
+// GUIDs + vtable order verified against the mingw-w64 IDL (mmdeviceapi.idl,
+// endpointvolume.idl) AND tested live on the Windows box (2026-09-09).
+// IAudioEndpointVolume order: 1 RegisterCCN 2 UnregisterCCN 3 GetChannelCount
+// 4 SetMasterVolumeLevel 5 SetMasterVolumeLevelScalar 6 GetMasterVolumeLevel
+// 7 GetMasterVolumeLevelScalar 8-11 channel methods 12 SetMute 13 GetMute.
+// NOTE: REFGUID marshals as `ref Guid`, and the coclass needs [ComImport].
 const VOL_CS = `
 using System;using System.Runtime.InteropServices;
-[Guid("5CDBCF5C-3F4F-4696-BB92-4357605232A3"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+[ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 public interface IAudioEndpointVolume {
-  int f();int g();int h();int i();int j();int k();
-  int GetMasterVolumeLevelScalar(out float lvl);
-  int SetMasterVolumeLevelScalar(float lvl, Guid ctx);
-  int q();int r();
-  int GetMute(out int mute);
-  int SetMute([MarshalAs(UnmanagedType.Bool)]bool mute, Guid ctx);
+  void RegisterControlChangeNotify(IntPtr pNotify);
+  void UnregisterControlChangeNotify(IntPtr pNotify);
+  void GetChannelCount(out uint chanCount);
+  void SetMasterVolumeLevel(float db, ref Guid ctx);
+  void SetMasterVolumeLevelScalar(float lvl, ref Guid ctx);
+  void GetMasterVolumeLevel(out float db);
+  void GetMasterVolumeLevelScalar(out float lvl);
+  void SetChannelVolumeLevel(uint n, float db, ref Guid ctx);
+  void SetChannelVolumeLevelScalar(uint n, float lvl, ref Guid ctx);
+  void GetChannelVolumeLevel(uint n, out float db);
+  void GetChannelVolumeLevelScalar(uint n, out float lvl);
+  void SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, ref Guid ctx);
+  void GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
 }
-[Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] public class MMDeviceEnumeratorCo { }
-[Guid("A95664D2-9614-4F37-A746-E8B6C762AC66"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-public interface IMMDevice { int Activate(ref Guid iid,int ctx,IntPtr p,out IAudioEndpointVolume pp); }
-[Guid("D666063F-15AC-4E62-B1C8-B2800B84E848"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+[ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IMMDevice {
+  void Activate(ref Guid iid, uint ctx, IntPtr p, [MarshalAs(UnmanagedType.Interface)] out IAudioEndpointVolume pp);
+}
+[ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 public interface IMMEnum {
-  int EnumAudioEndpoints(int f,int m,out IntPtr p);
-  int GetDefaultAudioEndpoint(int f,int r,out IMMDevice d);
+  [return: MarshalAs(UnmanagedType.Interface)] object EnumAudioEndpoints(uint flow, uint stateMask);
+  [return: MarshalAs(UnmanagedType.Interface)] object GetDefaultAudioEndpoint(uint flow, uint role);
 }
+[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] public class MMDeviceEnumeratorCo { }
 public static class Vol {
+  static readonly string Q = ((char)34).ToString();   // avoid quote-escaping through PS layers
   static IAudioEndpointVolume EP() {
-    var en=(IMMEnum)new MMDeviceEnumeratorCo(); IMMDevice dev;
-    en.GetDefaultAudioEndpoint(0,1,out dev);
-    var iid=typeof(IAudioEndpointVolume).GUID; IAudioEndpointVolume v;
-    dev.Activate(ref iid,1,IntPtr.Zero,out v); return v;
+    var en = (IMMEnum)new MMDeviceEnumeratorCo();
+    var dev = (IMMDevice)en.GetDefaultAudioEndpoint(0u, 1u);
+    var iid = typeof(IAudioEndpointVolume).GUID; IAudioEndpointVolume v;
+    dev.Activate(ref iid, 1u, IntPtr.Zero, out v); return v;
   }
-  public static string Get(){ var v=EP(); float l; int m;
+  public static string Get(){ var v=EP(); float l; bool m;
     v.GetMasterVolumeLevelScalar(out l); v.GetMute(out m);
-    return "{\\"level\\":"+(int)Math.Round(l*100)+",\\"muted\\":"+(m==1?\\"true\\":\\"false\\")+\\"}";
+    return "{"+Q+"level"+Q+":"+(int)Math.Round(l*100)+","+Q+"muted"+Q+":"+(m?"true":"false")+"}";
   }
-  public static void SetMax(){ var v=EP(); v.SetMute(false,new Guid()); v.SetMasterVolumeLevelScalar(1f,new Guid()); }
+  public static void SetMax(){ var v=EP(); var g=new Guid();
+    v.SetMute(false, ref g); v.SetMasterVolumeLevelScalar(1f, ref g); }
 }
 `;
 async function volumeGet() {
@@ -82,23 +100,30 @@ async function volumeSetMax() {
 async function netStatus() {
   const script = `
 $ErrorActionPreference='SilentlyContinue'
-$out = @{ type='none'; ssid=''; ip=''; signal=0 }
 $ipCfg = Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway } | Select-Object -First 1
 $ip = if ($ipCfg) { $ipCfg.IPv4Address.IPAddress } else { '' }
-$wifiOut = netsh wlan show interfaces | Out-String
-if ($wifiOut -match '(?im)^\\s*State\\s*:\\s*connected' -and $wifiOut -match '(?im)^\\s*SSID\\s*:\\s*(.+)') {
-  $pct = 50; if ($wifiOut -match '(?im)^\\s*Signal\\s*:\\s*(\\d+)%') { $pct = [int]$Matches[1] }
-  $out = @{ type='wifi'; ssid=$Matches[0] -replace '(?im)^\\s*SSID\\s*:\\s*',''; signal=[Math]::Ceiling($pct/25); ip=$ip }
-  $out.ssid = ($wifiOut | Select-String -Pattern '(?im)^\\s*SSID\\s*:\\s*(.+)' | ForEach-Object { $_.Matches[0].Groups[1].Value } | Select-Object -First 1)
-} else {
-  $prof = Get-NetConnectionProfile | Where-Object { $_.NetworkCategory -ne 'Disconnected' -and $_.InterfaceDescription -notmatch 'Wireless|Wi-Fi|802' } | Select-Object -First 1
-  if ($prof -or ($ip -and $wifiOut -notmatch 'connected')) { $out = @{ type='lan'; ssid=''; signal=4; ip=$ip } }
+$adapter = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Sort-Object LinkSpeed -Descending | Select-Object -First 1
+$isWifi = $adapter -and $adapter.PhysicalMediaType -match '802.11|Native 802'
+$ssid = ''
+$wlanOk = $false
+$t = netsh wlan show interfaces | Out-String
+if ($t -match '(?im)^\\s*State\\s*:\\s*connected') {
+  $wlanOk = $true
+  $m = [regex]::Match($t, '(?im)^\\s*SSID\\s*:\\s*(.+)')
+  if ($m.Success) { $ssid = $m.Groups[1].Value.Trim() }
 }
-$out | ConvertTo-Json -Compress
+$type = 'none'
+if ($wlanOk -or $isWifi) { $type = 'wifi' }
+elseif ($ipCfg -or $adapter) { $type = 'lan' }
+$sig = 4
+if ($type -eq 'wifi' -and $t -match '(?im)^\\s*Signal\\s*:\\s*(\\d+)%') { $sig = [Math]::Min(4,[Math]::Ceiling([int]$Matches[1]/25)) }
+'{"type":"' + $type + '","ssid":"' + ($ssid -replace '"','') + '","ip":"' + $ip + '","signal":' + $sig + '}'
 `;
   const r = await ps(script);
-  return parse(r, { type: "none", ssid: "", ip: "", signal: 0 });
+  const d = r.ok && typeof r.data === "string" ? safeJson(r.data) : (r.ok ? r.data : null);
+  return d || { type: "none", ssid: "", ip: "", signal: 0 };
 }
+
 async function netScan() {
   const script = `
 $ErrorActionPreference='SilentlyContinue'
@@ -149,17 +174,31 @@ $ErrorActionPreference='SilentlyContinue'
 $bt = @(Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | Where-Object { $_.Present })
 $on = @($bt | Where-Object { $_.Status -eq 'OK' }).Count -gt 0
 $conn = @()
-foreach ($d in ($bt | Where-Object { $_.FriendlyName -and $_.Status -eq 'OK' })) {
-  $kids = Get-PnpDeviceProperty -InstanceId $d.InstanceId -KeyName 'DEVPKEY_Device_Children' -ErrorAction SilentlyContinue
-  if ($kids -and $kids.Data) {
-    $childCls = foreach ($cid in $kids.Data) {
-      (Get-PnpDevice -InstanceId $cid -ErrorAction SilentlyContinue).Class
+# Connected peripherals = children of the Bluetooth Enumerator device(s).
+$enums = $bt | Where-Object { $_.FriendlyName -match 'Enumerator' }
+foreach ($e in $enums) {
+  $kids = Get-PnpDeviceProperty -InstanceId $e.InstanceId -KeyName 'DEVPKEY_Device_Children' -ErrorAction SilentlyContinue
+  if (-not $kids -or -not $kids.Data) { continue }
+  foreach ($cid in $kids.Data) {
+    $d = Get-PnpDevice -InstanceId $cid -ErrorAction SilentlyContinue
+    if (-not $d -or -not $d.FriendlyName) { continue }
+    # the device itself is Class=Bluetooth directly under the enumerator;
+    # its child faces (HID/Audio/GATT/profiles) are noisier — skip them
+    if ($d.Class -ne 'Bluetooth') { continue }
+    if ($d.FriendlyName -match 'Enumerator|Adapter|Radio|Profile|Service|UUID|Control|Sink|Watchdog|iAP|vCard|AVRCP|Hands-Free|LE Link|Microsoft|Generic|Notification|Proxy|Function|Button|Digitizer|Keyboard #|Composite') { continue }
+    $myKids = Get-PnpDeviceProperty -InstanceId $cid -KeyName 'DEVPKEY_Device_Children' -ErrorAction SilentlyContinue
+    $kind = 'hid'
+    if ($myKids -and $myKids.Data) {
+      foreach ($k2 in $myKids.Data) {
+        if ((Get-PnpDevice -InstanceId $k2 -ErrorAction SilentlyContinue).Class -match 'Audio|Media') { $kind = 'audio'; break }
+      }
     }
-    $kind = if ($childCls -match 'Audio') { 'audio' } else { 'hid' }
     $conn += [pscustomobject]@{ name=$d.FriendlyName; kind=$kind }
   }
 }
-'{"adapterOn":' + ($on ? 'true' : 'false') + ',"connected":' + ((ConvertTo-Json -Compress -InputObject $conn) -replace '^null$','[]') + '}'
+$conn = @($conn | Group-Object name | ForEach-Object { [pscustomobject]@{ name=$_.Name; kind=($_.Group[0].kind) } })
+if ($on) { $onStr = 'true' } else { $onStr = 'false' }   # PS 5.1 has no ternary
+'{"adapterOn":' + $onStr + ',"connected":' + ((ConvertTo-Json -Compress -InputObject $conn) -replace '^null$','[]') + '}'
 `;
   const r = await ps(script);
   const d = r.ok && typeof r.data === "string" ? safeJson(r.data) : r.ok ? r.data : null;
@@ -169,11 +208,22 @@ function safeJson(s) { try { return JSON.parse(s); } catch (e) { return null; } 
 async function btKnown() {
   const script = `
 $ErrorActionPreference='SilentlyContinue'
-$cur = Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'OK' } | ForEach-Object { $_.FriendlyName }
-$list = foreach ($d in (Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -and $_.Present -and ($cur -notcontains $_.FriendlyName) })) {
-  [pscustomobject]@{ name=$d.FriendlyName; kind='hid' }
+$enums = @(Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -match 'Enumerator' -and $_.Present })
+$list = @()
+foreach ($e in $enums) {
+  $kids = Get-PnpDeviceProperty -InstanceId $e.InstanceId -KeyName 'DEVPKEY_Device_Children' -ErrorAction SilentlyContinue
+  if (-not $kids -or -not $kids.Data) { continue }
+  foreach ($cid in $kids.Data) {
+    $d = Get-PnpDevice -InstanceId $cid -ErrorAction SilentlyContinue
+    if (-not $d -or -not $d.FriendlyName) { continue }
+    if ($d.Status -ne 'OK' -and $d.Enabled) {
+      $list += [pscustomobject]@{ name=$d.FriendlyName; kind='hid' }
+    }
+  }
 }
-ConvertTo-Json -Compress -InputObject @($list | Sort-Object name -Unique)
+# also paired-but-absent devices (phantom entries PnP keeps)
+$phantom = @(Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | Where-Object { $_.Present -eq $false -and $_.FriendlyName -and $_.FriendlyName -notmatch 'Enumerator|Adapter|Radio' } | ForEach-Object { [pscustomobject]@{ name=$_.FriendlyName; kind='hid' } })
+ConvertTo-Json -Compress -InputObject @(@($list; $phantom) | Group-Object name | ForEach-Object { $_.Group[0] })
 `;
   const r = await ps(script);
   const list = Array.isArray(r.data) ? r.data : (r.data ? [r.data] : []);
@@ -211,14 +261,12 @@ try {
 
 /* ================= start menu + launching ================= */
 async function listStartMenu() {
-  const dirs = [
-    path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs"),
-    path.join(process.env.ProgramData || "C:\\ProgramData", "Microsoft", "Windows", "Start Menu", "Programs"),
-  ].filter(d => d && fs.existsSync(d));
-  if (!dirs.length) return [];
   const script = `
 $ErrorActionPreference='SilentlyContinue'
-$dirs = @(${dirs.map(d => "'" + q(d) + "'").join(",")})
+$dirs = @(
+  (Join-Path $env:APPDATA 'Microsoft\\Windows\\Start Menu\\Programs'),
+  (Join-Path $env:ProgramData 'Microsoft\\Windows\\Start Menu\\Programs')
+) | Where-Object { $_ -and (Test-Path $_) }
 $seen=@{}
 $res = foreach ($dir in $dirs) {
   Get-ChildItem -Path $dir -Recurse -Filter '*.lnk' -ErrorAction SilentlyContinue | ForEach-Object {
@@ -321,6 +369,7 @@ async function appIconFor(lnkPath) {
   const script = `
 $ErrorActionPreference='Stop'
 try {
+  Add-Type -AssemblyName System.Drawing
   $lnk = '${q(lnkPath)}'
   $sh = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
   $src = if ($sh.TargetPath -and (Test-Path $sh.TargetPath)) { $sh.TargetPath } else { $lnk }
@@ -328,7 +377,8 @@ try {
   $bmp = $ico.ToBitmap()
   $out = Join-Path '${cacheDir().replace(/\\/g, "\\\\")}' ((Get-Item $src).BaseName + '.png')
   $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
-  '{"iconPath":"file:///' + ($out -replace '\\\\','/') + '"}'
+  $uri = ('file:///' + ($out -replace '\\\\','/')) -replace ' ', '%20'
+  '{"iconPath":"' + $uri + '"}'
 } catch { '{"iconPath":null}' }
 `;
   const r = await ps(script);
