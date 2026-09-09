@@ -67,6 +67,7 @@ function slideOver(title, buildBody) {
   let entries = buildBody(body, panel);      // may be sync array or promise
   const closeBtn = document.createElement("div");
   closeBtn.className = "btn focusable"; closeBtn.textContent = "Close";
+  closeBtn.addEventListener("click", () => close());   // works via mouse AND layer.onActivate
   const row = document.createElement("div"); row.className = "btn-row"; row.append(closeBtn);
   panel.append(row);
 
