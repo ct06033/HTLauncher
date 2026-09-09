@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain, screen } = require("electron");
 const path = require("path");
 const svc = require("./services");
+const { openYouTube } = require("./youtube");
 
 let win = null;
 let updater = null;
@@ -55,6 +56,7 @@ app.on("second-instance", () => { if (win) { win.show(); win.focus(); } });
 app.whenReady().then(() => {
   createWindow();
   svc.registerIpc(ipcMain, () => win, loadUpdater, () => updateDownloaded);
+  ipcMain.handle("svc:open-youtube", async () => openYouTube(() => win));
   startUpdateLoop();
   if (app.isPackaged) loadUpdater()?.checkForUpdates().catch(() => {});
 });

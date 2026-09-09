@@ -36,15 +36,17 @@ html,body{ height:100%; overflow:hidden; background:var(--bg);
   padding: calc(10*var(--u)) calc(18*var(--u)); border-radius:var(--radius); cursor:pointer; }
 #weather-icon svg{ width: calc(84*var(--u)); height: calc(84*var(--u)); display:block; }
 #weather-temp{ font-size: calc(34*var(--u)); font-weight:300; }
+#weather-loc{ font-size: calc(17*var(--u)); color:var(--text-dim); margin-top: calc(6*var(--u));
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: calc(240*var(--u)); }
 #topbar-right{ display:flex; align-items:center; gap: calc(10*var(--u)); }
 .topbtn{ width: calc(52*var(--u)); height: calc(52*var(--u)); border-radius:50%;
   background:rgba(255,255,255,.07); display:grid; place-items:center; cursor:pointer; }
 .topbtn svg{ width: calc(30*var(--u)); height: calc(30*var(--u)); }
 .topbtn.on{ background:var(--accent-soft); }
 #clock-zone{ text-align:right; margin-left: calc(14*var(--u)); }
-#clock-time{ font-size: calc(30*var(--u)); font-weight:500; letter-spacing:.02em; }
-#clock-time .ampm{ font-size: calc(16*var(--u)); color:var(--text-dim); margin-left:.25em; }
-#clock-date{ font-size: calc(16*var(--u)); color:var(--text-dim); }
+#clock-time{ font-size: calc(46*var(--u)); font-weight:600; letter-spacing:.02em; line-height:1.05; }
+#clock-time .ampm{ font-size: calc(22*var(--u)); color:var(--text-dim); margin-left:.2em; }
+#clock-date{ font-size: calc(20*var(--u)); color:var(--text-dim); }
 
 /* ---------- page tabs ---------- */
 #page-tabs{ position:absolute; left:0; right:0; top: calc(128*var(--u));

@@ -120,6 +120,8 @@ window.App = (() => {
     if (!w) return;
     document.getElementById("weather-icon").innerHTML = UI.wxIcon(w.code, w.isDay);
     document.getElementById("weather-temp").textContent = Weather.fmtTemp(w.tempC) + " " + UI.wxLabel(w.code);
+    const loc = document.getElementById("weather-loc");
+    if (loc) loc.textContent = w.location || "";
   }
   function openForecast() {
     const w = Weather.current; if (!w) return;
@@ -259,10 +261,17 @@ window.App = (() => {
   }
   async function addAppFlow() {
     const apps = await Bridge.listStartMenu();
+    const builtin = [{ name: "YouTube TV", path: "builtin:youtube", builtin: true,
+      icon: "assets/icons/youtube.jpg" }];
+    // insert built-ins alphabetically (they sort among the real list)
+    apps.push(builtin[0]);
+    apps.sort((a, b) => a.name.localeCompare(b.name));
     UI.picker("Choose an app", apps,
       async (app) => {
-        const tile = { type: "app", name: app.name, path: app.path, aumid: app.aumid || null, icon: null };
+        const tile = { type: "app", name: app.name, path: app.path, aumid: app.aumid || null,
+          icon: app.builtin ? app.icon : null };
         Store.addTile(tile); renderGrid(); toast(`Added ${app.name}`);
+        if (app.builtin) return;
         const ic = (app.aumid || app.lnk) && Bridge.appIconFor
           ? await Bridge.appIconFor(app.lnk || "", app.aumid || null) : { iconPath: null };
         if (ic.iconPath) {
@@ -358,7 +367,11 @@ window.App = (() => {
   /* =============== launch =============== */
   async function launch(tile) {
     let r;
-    if (tile.type === "app") r = await Bridge.launchApp(tile);
+    if (tile.path === "builtin:youtube") {
+      if (Bridge.openYouTube) r = await Bridge.openYouTube();
+      else { toast("YouTube TV opens fullscreen on the Windows build (web preview can't host it)"); return; }
+    }
+    else if (tile.type === "app") r = await Bridge.launchApp(tile);
     else if (tile.type === "command") r = await Bridge.runCommand(tile.cmd);
     else r = await Bridge.openWebApp(tile.url);
     if (r && !r.ok) toast("Failed: " + (r.error || "unknown"));
