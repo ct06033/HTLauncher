@@ -10,6 +10,7 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
 
 - **Fullscreen TV home screen** — no window chrome, no taskbar; optimized for a 65" screen at 720p/1080p/4K with large, remote-friendly targets
 - **Everything from the remote** — spatial D-pad navigation, on-screen keyboard, menus, pages. The physical mouse/keyboard are never required
+- **Built-in YouTube TV** — a first-class, fullscreen YouTube experience (PS4 Leanback user agent for 4K60 + audio dub support, remote-first input handling, Back returns to the launcher). Always available in the Add-app list as "YouTube TV"
 - **Tiles for anything**:
   - *Apps* — any program from your Windows Start Menu, with its real icon
   - *Webapps* — any URL, opened in Edge kiosk mode, favicon pulled automatically
@@ -108,7 +109,8 @@ The UI layer (`web/`) runs in a plain browser against a mock backend (`python -m
 
 ## Credits
 
-Vibecoded with **Qwen 3.8 Flash** 🤖 — this is my first project, so be kind, and open to PRs.
+- Built-in YouTube TV view adapted from [Liams-Electronics-Lab/HTPC-YT](https://github.com/Liams-Electronics-Lab/HTPC-YT) (GPL-3.0) — thanks for the Leanback user-agent and remote-input handling groundwork
+- Vibecoded with **Qwen 3.8 Flash** 🤖 — this is my first project, so be kind, and open to PRs.
 
 ## License
 
