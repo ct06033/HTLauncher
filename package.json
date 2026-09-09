@@ -29,7 +29,8 @@
       "oneClick": true,
       "perMachine": true,
       "deleteAppDataOnUninstall": false,
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "artifactName": "HTLauncher-Setup-${version}.exe"
     }
   }
 }
