@@ -1,4 +1,4 @@
-/* TVShell Windows services. All OS touchpoints live here, behind IPC names
+/* HTLauncher Windows services. All OS touchpoints live here, behind IPC names
  * that mirror the web bridge mock API exactly (web/js/bridge.js).
  * PowerShell does the heavy lifting: ps() encodes scripts as UTF-16
  * -EncodedCommand (no quoting issues) and parses JSON from stdout.
@@ -268,7 +268,7 @@ async function openWebApp(url) {
 function httpGet(url, timeoutMs = 8000) {
   return new Promise((resolve) => {
     const lib = url.startsWith("https:") ? require("https") : require("http");
-    const req = lib.get(url, { timeout: timeoutMs, headers: { "User-Agent": "TVShell" } }, (res) => {
+    const req = lib.get(url, { timeout: timeoutMs, headers: { "User-Agent": "HTLauncher" } }, (res) => {
       if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
         return httpGet(new URL(res.headers.location, url).href, timeoutMs).then(resolve);
       }
@@ -281,7 +281,7 @@ function httpGet(url, timeoutMs = 8000) {
   });
 }
 function cacheDir() {
-  const d = path.join(process.env.APPDATA || os.tmpdir(), "TVShell", "icons");
+  const d = path.join(process.env.APPDATA || os.tmpdir(), "HTLauncher", "icons");
   fs.mkdirSync(d, { recursive: true });
   return d;
 }
@@ -354,8 +354,8 @@ async function setAutostart(on) {
 $ErrorActionPreference='Stop'
 try {
   $run = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'
-  if ($${on ? 'true' : 'false'}) { Set-ItemProperty -Path $run -Name 'TVShell' -Value '"${q(exe)}"' }
-  else { Remove-ItemProperty -Path $run -Name 'TVShell' -ErrorAction SilentlyContinue }
+  if ($${on ? 'true' : 'false'}) { Set-ItemProperty -Path $run -Name 'HTLauncher' -Value '"${q(exe)}"' }
+  else { Remove-ItemProperty -Path $run -Name 'HTLauncher' -ErrorAction SilentlyContinue }
   '{"ok":true}'
 } catch { '{"ok":false,"error":"'+($_.Exception.Message -replace '"','')+'"}' }
 `;
@@ -390,7 +390,7 @@ function app_version() {
 }
 
 /* ================= IPC registration ================= */
-function registerIpc(ipcMain, getWindow) {
+function registerIpc(ipcMain, getWindow, getUpdater) {
   const h = (ch, fn) => ipcMain.handle(ch, async (_e, ...args) => {
     try { return await fn(...args); }
     catch (err) { return { ok: false, error: String(err && err.message || err) }; }
@@ -414,8 +414,21 @@ function registerIpc(ipcMain, getWindow) {
   h("svc:pick-wallpaper", pickWallpaper);
   h("svc:wp-dir", listWallpaperDir);
   h("svc:autostart", setAutostart);
-  h("svc:check-updates", checkForUpdates);
-  h("svc:install-update", () => ({ ok: false, error: "updater feed not configured yet" }));
+  h("svc:check-updates", async () => {
+    const u = getUpdater && getUpdater();
+    if (!u) return { available: false, version: app_version() };
+    try {
+      const r = await u.checkForUpdates();
+      return { available: !!(r && r.updateInfo && r.updateInfo.version !== app_version()),
+               version: r && r.updateInfo ? r.updateInfo.version : app_version() };
+    } catch (e) { return { available: false, version: app_version() }; }
+  });
+  h("svc:install-update", async () => {
+    const u = getUpdater && getUpdater();
+    if (!u) return { ok: false, error: "updater unavailable" };
+    try { u.quitAndInstall(); return { ok: true }; }
+    catch (e) { return { ok: false, error: String(e.message || e) }; }
+  });
   h("svc:power", async (kind) => {
     const r = await power(kind);
     if (kind === "exit") { const w = getWindow(); if (w) w.close(); }

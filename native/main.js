@@ -1,9 +1,28 @@
-/* TVShell Electron main process — window shell + IPC to services. */
+/* HTLauncher Electron main process — window shell + IPC to services. */
 const { app, BrowserWindow, ipcMain, screen } = require("electron");
 const path = require("path");
 const svc = require("./services");
 
 let win = null;
+let updater = null;
+
+function loadUpdater() {
+  if (updater || !app.isPackaged) return updater;
+  try {
+    const { autoUpdater } = require("electron-updater");
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.on("error", (e) => console.warn("[updater]", e.message));
+    updater = autoUpdater;
+  } catch (e) { console.warn("[updater] unavailable:", e.message); }
+  return updater;
+}
+
+// daily update check (PRD): check on start, then every 24h
+function startUpdateLoop() {
+  setInterval(() => { if (app.isPackaged) loadUpdater()?.checkForUpdates().catch(() => {}); },
+    24 * 60 * 60 * 1000);
+}
 
 function createWindow() {
   const d = screen.getPrimaryDisplay();
@@ -32,6 +51,8 @@ app.on("second-instance", () => { if (win) { win.show(); win.focus(); } });
 
 app.whenReady().then(() => {
   createWindow();
-  svc.registerIpc(ipcMain, () => win);
+  svc.registerIpc(ipcMain, () => win, loadUpdater);
+  startUpdateLoop();
+  if (app.isPackaged) loadUpdater()?.checkForUpdates().catch(() => {});
 });
 app.on("window-all-closed", () => app.quit());

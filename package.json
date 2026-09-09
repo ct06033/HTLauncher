@@ -1,7 +1,7 @@
 {
-  "name": "tvshell",
-  "version": "0.2.0",
-  "description": "Google TV-like remote-driven shell for Windows big screens",
+  "name": "htlauncher",
+  "version": "0.3.0",
+  "description": "HTLauncher — Google TV-like remote-driven shell for Windows big screens",
   "main": "native/main.js",
   "author": "caspar",
   "license": "MIT",
@@ -10,14 +10,18 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder --win nsis"
   },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "tvshell.local.app",
-    "productName": "TVShell",
+    "appId": "htlauncher.local.app",
+    "productName": "HTLauncher",
     "files": ["native/**/*", "web/**/*", "package.json"],
+    "publish": { "provider": "github", "owner": "ct06033", "repo": "HTLauncher" },
     "win": {
       "target": [{ "target": "nsis", "arch": ["x64"] }]
     },
