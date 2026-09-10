@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld("tvnative", {
   runCommand: h("svc:run-cmd"),
   openWebApp: h("svc:open-webapp"),
   openYouTube: h("svc:open-youtube"),
+  openNetflix: h("svc:open-netflix"),
   faviconFor: h("svc:favicon"),
   appIconFor: h("svc:app-icon"),
   power: h("svc:power"),

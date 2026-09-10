@@ -8,9 +8,12 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
 
 ## What it does
 
-- **Fullscreen TV home screen** — no window chrome, no taskbar; optimized for a 65" screen at 720p/1080p/4K with large, remote-friendly targets
+- **Fullscreen TV home screen** — no window chrome, no taskbar; optimized for a 65" screen at 720p/4K with large, remote-friendly targets
 - **Everything from the remote** — spatial D-pad navigation, on-screen keyboard, menus, pages. The physical mouse/keyboard are never required
-- **Built-in YouTube TV** — a first-class, fullscreen YouTube experience (PS4 Leanback user agent for 4K60 + audio dub support, remote-first input handling, Back returns to the launcher). Always available in the Add-app list as "YouTube TV"
+- **Built-in streaming apps** — always in the Add-app list:
+  - *YouTube TV* — youtube.com/tv with the PS4 Leanback user agent (4K/60 + audio dubs), remote-first input
+  - *Netflix* — runs as a fullscreen Edge **app window** (toolbar-free, tab-less) with the bundled **HTLauncher Netflix Remote** Chrome/Edge extension providing remote semantics: Back (Delete/Backspace) steps through Netflix, Back at browse-root or Home returns to the launcher. Because it's Edge under the hood, Netflix playback works with real Widevine DRM out of the box, and your login lives in a dedicated profile
+  - Both return to HTLauncher on exit — never the desktop. (The native Netflix Windows app is a locked DRM sandbox — overlays/key-injection into it are impossible — hence the web experience + extension route.)
 - **Tiles for anything**:
   - *Apps* — any program from your Windows Start Menu, with its real icon
   - *Webapps* — any URL, opened in Edge kiosk mode, favicon pulled automatically

@@ -1,6 +1,6 @@
 {
   "name": "htlauncher",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "HTLauncher — Google TV-like remote-driven shell for Windows big screens",
   "main": "native/main.js",
   "author": "caspar",
@@ -21,6 +21,7 @@
     "appId": "htlauncher.local.app",
     "productName": "HTLauncher",
     "files": ["native/**/*", "web/**/*", "package.json"],
+    "asarUnpack": ["native/extensions/**"],
     "publish": { "provider": "github", "owner": "ct06033", "repo": "HTLauncher" },
     "win": {
       "target": [{ "target": "nsis", "arch": ["x64"] }]

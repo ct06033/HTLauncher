@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "HTLauncher Netflix Remote",
+  "version": "1.0.0",
+  "description": "TV-remote semantics for the Netflix web player inside HTLauncher: Back (Delete/Backspace/Esc) steps through the UI and returns to the launcher at browse-root; Home always returns to the launcher; cursor hidden.",
+  "content_scripts": [
+    {
+      "matches": ["https://www.netflix.com/*"],
+      "js": ["content.js"],
+      "css": ["cursor.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": { "service_worker": "background.js" },
+  "permissions": ["tabs"]
+}

@@ -259,12 +259,16 @@ window.App = (() => {
       { label: "Add webapp", hint: "Edge kiosk", onPick: addWebappFlow },
     ]);
   }
+  const BUILTINS = [
+    { name: "Netflix TV", path: "builtin:netflix", builtin: true, icon: "assets/icons/netflix.png" },
+    { name: "YouTube TV", path: "builtin:youtube", builtin: true, icon: "assets/icons/youtube.jpg" },
+  ];
   async function addAppFlow() {
     const apps = await Bridge.listStartMenu();
-    const builtin = [{ name: "YouTube TV", path: "builtin:youtube", builtin: true,
-      icon: "assets/icons/youtube.jpg" }];
-    // insert built-ins alphabetically (they sort among the real list)
-    apps.push(builtin[0]);
+    // built-ins participate in the picker (dedupe: real apps win over builtin)
+    for (const bi of BUILTINS) {
+      if (!apps.some(a => a.name.toLowerCase() === bi.name.toLowerCase() && !a.builtin)) apps.push(bi);
+    }
     apps.sort((a, b) => a.name.localeCompare(b.name));
     UI.picker("Choose an app", apps,
       async (app) => {
@@ -367,9 +371,10 @@ window.App = (() => {
   /* =============== launch =============== */
   async function launch(tile) {
     let r;
-    if (tile.path === "builtin:youtube") {
-      if (Bridge.openYouTube) r = await Bridge.openYouTube();
-      else { toast("YouTube TV opens fullscreen on the Windows build (web preview can't host it)"); return; }
+    if (tile.path === "builtin:youtube" || tile.path === "builtin:netflix") {
+      const fn = tile.path === "builtin:youtube" ? Bridge.openYouTube : Bridge.openNetflix;
+      if (fn) r = await fn();
+      else { toast("Opens fullscreen on the Windows build (web preview can't host it)"); return; }
     }
     else if (tile.type === "app") r = await Bridge.launchApp(tile);
     else if (tile.type === "command") r = await Bridge.runCommand(tile.cmd);
