@@ -29,7 +29,7 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
 
 ## TODO
 
-- TV friendly Netflix and spotify support
+- ~~TV friendly Netflix and spotify support~~ → Netflix is built-in as of v0.4.1; Spotify still open
 - Now playing widget for spotify
 - auto find and add games to a game tab
 - ???
