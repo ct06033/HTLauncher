@@ -24,6 +24,13 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
 - **Volume guard** — on every load it checks system volume is at 100% and unmuted (the remote controls volume; the app never fights it)
 - **Daily auto-updates** — checks GitHub Releases, downloads, and reinstalls itself
 
+## TODO
+
+- TV friendly Netflix and spotify support
+- Now playing widget for spotify
+- auto find and add games to a game tab
+- ???
+
 ## Remote control buttons
 
 | Remote button | Keyboard equivalent | Action |
