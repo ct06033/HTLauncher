@@ -74,6 +74,16 @@
     async setAutostart(on) { console.log("[mock] autostart =", on); return { ok: true }; },
     async checkForUpdates() { await delay(800);
       return { available: false, version: "1.0.0" }; },
+    async scanGames() { await delay(700);
+      return [
+        { name: "Baldur's Gate 3", appid: "1086940", src: "steam", launch: "steam://rungameid/1086940" },
+        { name: "NieR:Automata", appid: "524220", src: "steam", launch: "steam://rungameid/524220" },
+        { name: "Forza Horizon 6", appid: "2483190", src: "steam", launch: "steam://rungameid/2483190" },
+        { name: "Divinity: Original Sin 2", appid: "435150", src: "steam", launch: "steam://rungameid/435150" },
+        { name: "Rocket League", appid: "RocketLeague", src: "epic", launch: "com.epicgames.launcher://apps/RocketLeague?action=launch&silent=true" },
+      ]; },
+    async gameIcon(appid) { return { iconUrl: appid && /^\d+$/.test(appid)
+      ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/header.jpg` : null }; },
     wallpaperUrl(ref) { return ref && ref.startsWith("mock:") ? "assets/" + ref.slice(5) : (ref || null); },
     mockWallpapers: ["wallpapers/space.svg", "wallpapers/dunes.svg", "wallpapers/forest.svg"],
   };

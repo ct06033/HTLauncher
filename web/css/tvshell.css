@@ -76,6 +76,9 @@ html,body{ height:100%; overflow:hidden; background:var(--bg);
 .tile.add-tile{ justify-content:center; background:rgba(255,255,255,.05);
   border: calc(2*var(--u)) dashed rgba(255,255,255,.22); }
 .tile.add-tile .plus{ font-size: calc(40*var(--u)); color:var(--text-dim); font-weight:300; }
+.tile-banner{ background-size:cover; background-position:center; align-items:flex-end; min-height: calc(120*var(--u)); }
+.tile-banner .t-icon{ display:none; }
+.tile-banner .t-name{ font-size: calc(19*var(--u)); font-weight:600; text-shadow:0 calc(2*var(--u)) calc(8*var(--u)) rgba(0,0,0,.9); }
 
 /* ---------- focus (remote highlight) ---------- */
 .focusable{ outline:none; }

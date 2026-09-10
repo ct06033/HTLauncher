@@ -18,8 +18,10 @@ let lastWebApp = null;
 function ps(script, timeoutMs = 20000) {
   return new Promise((resolve) => {
     if (!IS_WIN) return resolve({ ok: false, error: "not-windows" });
-    // UTF-16LE WITHOUT BOM — a leading BOM becomes a literal '?' char and
-    // breaks the first cmdlet (verified on the Windows test box).
+    // Force UTF-8 console output so non-ASCII (™, é, CJK) survives the JSON trip;
+    // the PS default (OEM codepage) mojibakes it. UTF-16LE WITHOUT BOM — a leading
+    // BOM becomes a literal '?' char and breaks the first cmdlet (verified on box).
+    script = "[Console]::OutputEncoding=[Text.Encoding]::UTF8;$OutputEncoding=[Text.Encoding]::UTF8;" + script;
     const encoded = Buffer.from(script, "utf16le").toString("base64");
     execFile(PS_EXE, [...PS_ARGS, "-EncodedCommand", encoded],
       { timeout: timeoutMs, windowsHide: true, maxBuffer: 8 * 1024 * 1024 },
@@ -346,6 +348,69 @@ async function openWebApp(url) {
   }
 }
 
+/* ================= games detection (Steam / Epic / GOG) ================= */
+async function scanGames() {
+  const script = `
+$ErrorActionPreference='SilentlyContinue'
+$games = @()
+# --- Steam: every library folder's appmanifest ---
+$libPaths = @("C:\\Program Files (x86)\\Steam")
+$vdf = "C:\\Program Files (x86)\\Steam\\steamapps\\libraryfolders.vdf"
+if (Test-Path $vdf) {
+  [regex]::Matches((Get-Content $vdf -Raw), '"path"\\s+"([^"]+)"') | ForEach-Object {
+    $libPaths += ($_.Groups[1].Value -replace '\\\\\\\\','\\')
+  }
+}
+foreach ($lib in ($libPaths | Select-Object -Unique)) {
+  foreach ($acf in (Get-ChildItem (Join-Path $lib 'steamapps\\appmanifest_*.acf') -EA SilentlyContinue)) {
+    # ReadAllText detects UTF-8 (PS 5.1 Get-Content would ANSI-mojibake "™" etc.)
+    $txt = [IO.File]::ReadAllText($acf.FullName)
+    $name = [regex]::Match($txt, '"name"\\s+"([^"]+)"').Groups[1].Value
+    $appid = [regex]::Match($acf.Name, 'appmanifest_(\\d+)\\.acf').Groups[1].Value
+    if (-not $name -or -not $appid) { continue }
+    if ($name -match 'Redistributable|Proton|Steam Linux|Runtime') { continue }
+    $games += [pscustomobject]@{ name=$name; appid=$appid; src='steam'; launch=('steam://rungameid/' + $appid) }
+  }
+}
+# --- Epic: launcher manifests ---
+$epicDir = Join-Path $env:LOCALAPPDATA 'EpicGamesLauncher\\Data\\Manifests'
+if (Test-Path $epicDir) {
+  foreach ($item in (Get-ChildItem $epicDir -Filter '*.item')) {
+    try { $j = Get-Content $item.FullName -Raw | ConvertFrom-Json
+      $n = if ($j.CatalogDisplayName) { $j.CatalogDisplayName } elseif ($j.AppName) { $j.AppName } else { $j.ManifestLocation }
+      if ($n -and $j.bCanLaunch -ne $false -and $n -notmatch 'Redistributable|Prerequisite') {
+        $games += [pscustomobject]@{ name=$n; appid=$j.AppName; src='epic'; launch=('com.epicgames.launcher://apps/' + $j.AppName + '?action=launch&silent=true') } }
+    } catch {}
+  }
+}
+# --- GOG galaxy offline installers folder ---
+foreach ($g in @("C:\\GOG Games","D:\\GOG Games")) {
+  if (Test-Path $g) { Get-ChildItem $g -Directory | ForEach-Object {
+    $exe = Get-ChildItem $_.FullName -Filter '*.exe' -Depth 1 | Where-Object { $_.Name -notmatch 'unins|gog' } | Select-Object -First 1
+    if ($exe) { $games += [pscustomobject]@{ name=$_.Name; appid=''; src='gog'; launch=$exe.FullName } } } }
+}
+ConvertTo-Json -Compress -InputObject @($games | Group-Object name | ForEach-Object { $_.Group[0] })
+`;
+  const r = await ps(script, 60000);
+  let list = r.ok ? r.data : null;
+  if (!list) return [];
+  if (!Array.isArray(list)) list = [list];
+  return list.filter(Boolean);
+}
+async function gameIcon(appid) {
+  if (!appid) return { iconUrl: null };
+  const url = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/header.jpg`;
+  try {
+    const img = await httpGet(url);
+    if (img && img.status === 200 && img.body.length > 256) {
+      const file = path.join(cacheDir(), "steam-" + appid + ".jpg");
+      fs.writeFileSync(file, img.body);
+      return { iconUrl: "file:///" + file.replace(/\\/g, "/") };
+    }
+  } catch (e) {}
+  return { iconUrl: null };
+}
+
 /* ================= favicon + app icons ================= */
 function httpGet(url, timeoutMs = 8000) {
   return new Promise((resolve) => {
@@ -538,6 +603,8 @@ function registerIpc(ipcMain, getWindow, getUpdater, getUpdateDownloaded) {
   h("svc:wp-dir", listWallpaperDir);
   h("svc:autostart", setAutostart);
   h("svc:version", async () => app_version());
+  h("svc:scan-games", scanGames);
+  h("svc:game-icon", (appid) => gameIcon(String(appid || "")));
   h("svc:check-updates", async () => {
     const u = getUpdater && getUpdater();
     if (!u) return { available: false, version: app_version() };
@@ -574,4 +641,5 @@ function registerIpc(ipcMain, getWindow, getUpdater, getUpdateDownloaded) {
 
 module.exports = { registerIpc, ps, volumeGet, volumeSetMax, netStatus, netScan, netConnect,
   btStatus, btKnown, btToggle, btConnect, btDisconnect, listStartMenu, launchApp, runCommand,
-  openWebApp, faviconFor, appIconFor, power, setAutostart, pickWallpaper, listWallpaperDir };
+  openWebApp, faviconFor, appIconFor, power, setAutostart, pickWallpaper, listWallpaperDir,
+  scanGames, gameIcon };

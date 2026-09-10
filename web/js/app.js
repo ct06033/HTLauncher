@@ -17,7 +17,49 @@ window.App = (() => {
     Store.onChange(() => { setupWallpaper(); });
     checkVolume();
     pushHomeLayer();
-    toast(`TVShell (UI preview — ${Bridge.backend} backend). Use arrow keys, Enter=OK, Del=Back, End=Menu, Home, PgUp/PgDn.`);
+    autoSetupGames();          // one-time: detect installed games -> GAMES page
+    toast(`HTLauncher ready. Arrow keys + Enter, Del=Back, End=Menu, Home, PgUp/PgDn.`);
+  }
+
+  /* =============== games auto-setup =============== */
+  async function autoSetupGames(force) {
+    if (Store.state.gamesSetup && !force) return "already";
+    let games = [];
+    try { games = await Bridge.scanGames(); } catch (e) { return "error"; }
+    if (!games.length) {
+      Store.state.gamesSetup = "none"; Store.save();
+      if (force) toast("No installed games found (Steam/Epic/GOG)");
+      return "none";
+    }
+    let slot = Store.state.pages.findIndex((n, i) => i > 0 && /^games$/i.test(n || ""));
+    if (slot === -1) slot = Store.state.pages.findIndex((n, i) => i > 0 && !n);
+    if (slot === -1) { if (force) toast("All pages are full — free one first"); return "nopage"; }
+    if (!Store.state.pages[slot]) { Store.state.pages[slot] = "GAMES"; buildPages(); }
+    const existing = Store.tiles(slot);
+    const newTiles = games
+      .filter(g => !existing.some(t => t.type === "game" && (t.appid === g.appid || t.name === g.name)))
+      .map(g => ({ type: "game", name: g.name, src: g.src, appid: g.appid,
+        launch: g.launch, icon: null }));
+    if (newTiles.length) { Store.tiles(slot).push(...newTiles); Store.save(); }
+    Store.state.gamesSetup = String(games.length); Store.save();
+    if (currentPage === slot) renderGrid();
+    fillGameIcons(slot).then((any) => { if (any && currentPage === slot) renderGrid(); });
+    toast(`Added ${newTiles.length || games.length} game${(newTiles.length || games.length) > 1 ? "s" : ""} to GAMES — press Page Down`);
+    return "ok";
+  }
+  async function fillGameIcons(slot) {
+    let changed = false;
+    const tiles = Store.tiles(slot);
+    for (let i = 0; i < tiles.length; i++) {
+      const t = tiles[i];
+      if (t.type === "game" && !t.icon && t.appid && /^\d+$/.test(t.appid) && Bridge.gameIcon) {
+        try {
+          const ic = await Bridge.gameIcon(t.appid);
+          if (ic.iconUrl) { Store.updateTile(slot, i, { icon: ic.iconUrl }); changed = true; }
+        } catch (e) {}
+      }
+    }
+    return changed;
   }
 
   async function checkVolume() {
@@ -224,9 +266,12 @@ window.App = (() => {
   }
   function tileEl(t, idx) {
     const e = document.createElement("div");
-    e.className = "tile focusable"; e.dataset.idx = idx;
+    e.className = "tile focusable" + (t.type === "game" && t.icon ? " tile-banner" : "");
+    e.dataset.idx = idx;
     const iconHtml = t.type === "command" ? UI.ICONS.cmd : initialsIcon(t);
     e.innerHTML = `<div class="t-icon">${iconHtml}</div><div class="t-name">${UI.escapeHtml(t.name)}</div>`;
+    if (t.type === "game" && t.icon)
+      e.style.backgroundImage = `linear-gradient(180deg, rgba(8,10,16,.25), rgba(8,10,16,.82)), url("${t.icon}")`;
     e.addEventListener("click", () => launch(t));
     return e;
   }
@@ -318,7 +363,7 @@ window.App = (() => {
           onCancel: () => Nav.setFocus(Nav.current) }) },
       { label: "Reorder", hint: "◀ ▶ move", onPick: () => reorderMode(page, idx) },
     ];
-    if (tile.type !== "app") items.push({ label: "Edit", hint: tile.type, onPick: () => editTile(tile, page, idx) });
+    if (tile.type !== "app" && tile.type !== "game") items.push({ label: "Edit", hint: tile.type, onPick: () => editTile(tile, page, idx) });
     items.push({ label: "Delete", danger: true, onPick: () => {
       Store.removeTile(page, idx); renderGrid(); toast("Removed"); } });
     UI.menu(items);
@@ -377,6 +422,7 @@ window.App = (() => {
       else { toast("Opens fullscreen on the Windows build (web preview can't host it)"); return; }
     }
     else if (tile.type === "app") r = await Bridge.launchApp(tile);
+    else if (tile.type === "game") r = await Bridge.runCommand(tile.launch);
     else if (tile.type === "command") r = await Bridge.runCommand(tile.cmd);
     else r = await Bridge.openWebApp(tile.url);
     if (r && !r.ok) toast("Failed: " + (r.error || "unknown"));
@@ -504,6 +550,11 @@ window.App = (() => {
       if (Bridge.appVersion) Bridge.appVersion().then(v => {
         const sub = verRow.querySelector(".sub"); if (sub && v) sub.textContent = "installed version " + v;
       });
+      setRow("Games", (() => { const b = document.createElement("div");
+        b.className = "btn focusable"; b.textContent = "Rescan";
+        b.addEventListener("click", () => { Store.state.gamesSetup = null; Store.save(); autoSetupGames(true); });
+        return b; })(),
+        "auto-detect Steam/Epic/GOG games into a GAMES page");
       setRow("Reset HTLauncher", (() => { const b = document.createElement("div");
         b.className = "btn danger focusable"; b.textContent = "Clear all data";
         b.addEventListener("click", () => UI.menu([{ label: "Confirm — wipe settings & tiles", danger: true,

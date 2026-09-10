@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld("tvnative", {
   pickWallpaper: h("svc:pick-wallpaper"),
   listWallpaperDir: h("svc:wp-dir"),
   setAutostart: h("svc:autostart"),
+  scanGames: h("svc:scan-games"),
+  gameIcon: h("svc:game-icon"),
   checkForUpdates: h("svc:check-updates"),
   installUpdate: h("svc:install-update"),
   appVersion: h("svc:version"),

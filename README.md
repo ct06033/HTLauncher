@@ -14,6 +14,7 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
   - *YouTube TV* — youtube.com/tv with the PS4 Leanback user agent (4K/60 + audio dubs), remote-first input
   - *Netflix* — runs as a fullscreen Edge **app window** (toolbar-free, tab-less) with the bundled **HTLauncher Netflix Remote** Chrome/Edge extension providing remote semantics: Back (Delete/Backspace) steps through Netflix, Back at browse-root or Home returns to the launcher. Because it's Edge under the hood, Netflix playback works with real Widevine DRM out of the box, and your login lives in a dedicated profile
   - Both return to HTLauncher on exit — never the desktop. (The native Netflix Windows app is a locked DRM sandbox — overlays/key-injection into it are impossible — hence the web experience + extension route.)
+- **Auto-detected GAMES page** — on first run HTLauncher scans your installed games (Steam across all library folders, Epic, GOG) and fills a dedicated GAMES page with one banner tile per game, using real Steam CDN art; launching goes straight through `steam://` / Epic URIs / the game's exe. Re-scan any time from Settings → Games → Rescan. (If your GAMES page shows placeholder initials, Steam's art CDN wasn't reachable at scan time — rescan fixes it.)
 - **Tiles for anything**:
   - *Apps* — any program from your Windows Start Menu, with its real icon
   - *Webapps* — any URL, opened in Edge kiosk mode, favicon pulled automatically
@@ -31,7 +32,7 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
 
 - ~~TV friendly Netflix and spotify support~~ → Netflix is built-in as of v0.4.1; Spotify still open
 - Now playing widget for spotify
-- auto find and add games to a game tab
+- ~~auto find and add games to a game tab~~ → done in v0.5.0 (Steam/Epic/GOG auto-scan with banner art)
 - ???
 
 ## Remote control buttons
