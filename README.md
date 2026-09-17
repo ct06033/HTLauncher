@@ -13,7 +13,9 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
 - **Built-in streaming apps** — always in the Add-app list:
   - *YouTube TV* — youtube.com/tv with the PS4 Leanback user agent (4K/60 + audio dubs), remote-first input
   - *Netflix* — runs as a fullscreen Edge **app window** (toolbar-free, tab-less) with the bundled **HTLauncher Netflix Remote** Chrome/Edge extension providing remote semantics: Back (Delete/Backspace) steps through Netflix, Back at browse-root or Home returns to the launcher. Because it's Edge under the hood, Netflix playback works with real Widevine DRM out of the box, and your login lives in a dedicated profile
-  - Both return to HTLauncher on exit — never the desktop. (The native Netflix Windows app is a locked DRM sandbox — overlays/key-injection into it are impossible — hence the web experience + extension route.)
+  - *Spotify* — same Edge app-window + extension pattern as Netflix (web player, real Widevine for full-quality playback, Back walks the UI and exits to the launcher at the library root, Home always exits). Dedicated persisted-login profile. A remote-friendly player, not a desktop web page
+  - These return to HTLauncher on exit — never the desktop. (The native Netflix/Spotify Windows apps are locked DRM sandboxes — overlays/key-injection into them are impossible — hence the web experience + extension route.)
+- **Real icons on every tile** — app tiles import the actual program icon (icon resource from the app's .lnk/exe, or the Store package logo), webapp tiles grab the site favicon, game tiles use Steam banner art. Tiles you added before this existed are backfilled automatically on next launch — no more letter-in-a-box placeholders
 - **Auto-detected GAMES page** — on first run HTLauncher scans your installed games (Steam across all library folders, Epic, GOG) and fills a dedicated GAMES page with one banner tile per game, using real Steam CDN art; launching goes straight through `steam://` / Epic URIs / the game's exe. Re-scan any time from Settings → Games → Rescan. (If your GAMES page shows placeholder initials, Steam's art CDN wasn't reachable at scan time — rescan fixes it.)
 - **Tiles for anything**:
   - *Apps* — any program from your Windows Start Menu, with its real icon
@@ -30,7 +32,7 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
 
 ## TODO
 
-- ~~TV friendly Netflix and spotify support~~ → Netflix is built-in as of v0.4.1; Spotify still open
+- ~~TV friendly Netflix and spotify support~~ → Netflix built-in v0.4.1, Spotify built-in v0.6.0
 - Now playing widget for spotify
 - ~~auto find and add games to a game tab~~ → done in v0.5.0 (Steam/Epic/GOG auto-scan with banner art)
 - ???

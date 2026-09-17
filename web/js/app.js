@@ -18,6 +18,7 @@ window.App = (() => {
     checkVolume();
     pushHomeLayer();
     autoSetupGames();          // one-time: detect installed games -> GAMES page
+    fillTileIcons();           // one-time+incremental: import real app/webapp icons
     toast(`HTLauncher ready. Arrow keys + Enter, Del=Back, End=Menu, Home, PgUp/PgDn.`);
   }
 
@@ -59,6 +60,31 @@ window.App = (() => {
         } catch (e) {}
       }
     }
+    return changed;
+  }
+  /* =============== tile icon import (apps + webapps) =============== */
+  async function fillTileIcons() {
+    let changed = false;
+    for (let page = 0; page < Store.state.pages.length; page++) {
+      const tiles = Store.tiles(page);
+      for (let i = 0; i < tiles.length; i++) {
+        const t = tiles[i];
+        if (t.icon) continue;
+        if (t.type === "app" && (t.lnk || t.aumid || t.path) && Bridge.appIconFor) {
+          try {
+            const ic = await Bridge.appIconFor(t.lnk || (typeof t.path === "string" && t.path.endsWith(".lnk") ? t.path : "")
+              , t.aumid || null);
+            if (ic && ic.iconPath) { Store.updateTile(page, i, { icon: ic.iconPath }); changed = true; }
+          } catch (e) {}
+        } else if (t.type === "webapp" && t.url && Bridge.faviconFor) {
+          try {
+            const fav = await Bridge.faviconFor(t.url);
+            if (fav && fav.iconUrl) { Store.updateTile(page, i, { icon: fav.iconUrl }); changed = true; }
+          } catch (e) {}
+        }
+      }
+    }
+    if (changed && currentPage !== undefined) renderGrid();
     return changed;
   }
 
@@ -305,6 +331,7 @@ window.App = (() => {
     ]);
   }
   const BUILTINS = [
+    { name: "Spotify TV", path: "builtin:spotify", builtin: true, icon: "assets/icons/spotify.png" },
     { name: "Netflix TV", path: "builtin:netflix", builtin: true, icon: "assets/icons/netflix.png" },
     { name: "YouTube TV", path: "builtin:youtube", builtin: true, icon: "assets/icons/youtube.jpg" },
   ];
@@ -416,8 +443,10 @@ window.App = (() => {
   /* =============== launch =============== */
   async function launch(tile) {
     let r;
-    if (tile.path === "builtin:youtube" || tile.path === "builtin:netflix") {
-      const fn = tile.path === "builtin:youtube" ? Bridge.openYouTube : Bridge.openNetflix;
+    const BUILTIN_FNS = { "builtin:youtube": () => Bridge.openYouTube, "builtin:netflix": () => Bridge.openNetflix,
+                          "builtin:spotify": () => Bridge.openSpotify };
+    if (tile.path && BUILTIN_FNS[tile.path]) {
+      const fn = BUILTIN_FNS[tile.path]();
       if (fn) r = await fn();
       else { toast("Opens fullscreen on the Windows build (web preview can't host it)"); return; }
     }

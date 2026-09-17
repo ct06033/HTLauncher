@@ -88,9 +88,10 @@
     mockWallpapers: ["wallpapers/space.svg", "wallpapers/dunes.svg", "wallpapers/forest.svg"],
   };
 
-  // Native-side additions the mock doesn't need: real wallpaper dirs + app icons
+  // Native-side additions the mock doesn't need: real wallpaper dirs.
+  // (appIconFor ships with window.tvnative — wrapper must pass BOTH args:
+  //  .lnk path AND Store AUMID, else store apps never get icons.)
   const nativeExtras = {
-    appIconFor: (lnk) => window.tvnative.appIconFor ? window.tvnative.appIconFor(lnk) : { iconPath: null },
     mockWallpapers: [],
   };
   window.Bridge = isNative

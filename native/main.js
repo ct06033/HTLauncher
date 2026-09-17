@@ -3,7 +3,7 @@ const { app, BrowserWindow, ipcMain, screen } = require("electron");
 const path = require("path");
 const svc = require("./services");
 const { openYouTube } = require("./youtube");
-const { openNetflix } = require("./netflix");
+const { openNetflix, openSpotify } = require("./edgeapps");
 
 let win = null;
 let updater = null;
@@ -59,6 +59,7 @@ app.whenReady().then(() => {
   svc.registerIpc(ipcMain, () => win, loadUpdater, () => updateDownloaded);
   ipcMain.handle("svc:open-youtube", async () => openYouTube(() => win));
   ipcMain.handle("svc:open-netflix", async () => openNetflix(() => win));
+  ipcMain.handle("svc:open-spotify", async () => openSpotify(() => win));
   startUpdateLoop();
   if (app.isPackaged) loadUpdater()?.checkForUpdates().catch(() => {});
 });
