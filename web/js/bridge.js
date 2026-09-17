@@ -86,6 +86,21 @@
       ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${appid}/header.jpg` : null }; },
     wallpaperUrl(ref) { return ref && ref.startsWith("mock:") ? "assets/" + ref.slice(5) : (ref || null); },
     mockWallpapers: ["wallpapers/space.svg", "wallpapers/dunes.svg", "wallpapers/forest.svg"],
+    // Browser-preview stand-in for native preload onEvent: cycles a demo
+    // track through the now-playing widget every 20s (hide > show) so the
+    // top-bar widget is previewable without the Edge extension + bridge.
+    onEvent(fn) {
+      if (window.Bridge && window.Bridge.backend === "native") return; // no-op guard
+      let i = 0;
+      const DEMO = [
+        null,
+        { source: "spotify", playing: true, title: "Bohemian Rhapsody", artist: "Queen", album: "A Night at the Opera", artUrl: null, pct: 12 },
+        { source: "spotify", playing: true, title: "Bohemian Rhapsody", artist: "Queen", album: "A Night at the Opera", artUrl: null, pct: 47 },
+        { source: "spotify", playing: true, title: "Take Five", artist: "Dave Brubeck Quartet", album: "Time Out", artUrl: null, pct: 81 },
+      ];
+      // 8s < the 12s renderer watchdog, so the demo survives its own ticks.
+      setInterval(() => { fn({ type: "nowplaying", data: DEMO[i++ % DEMO.length] }); }, 8000);
+    },
   };
 
   // Native-side additions the mock doesn't need: real wallpaper dirs.

@@ -9,8 +9,15 @@
       "js": ["content.js"],
       "css": ["cursor.css"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://open.spotify.com/*"],
+      "js": ["page-probe.js"],
+      "world": "MAIN",
+      "run_at": "document_idle"
     }
   ],
   "background": { "service_worker": "background.js" },
-  "permissions": ["tabs"]
+  "permissions": ["tabs"],
+  "host_permissions": ["http://127.0.0.1:47633/*"]
 }
