@@ -39,6 +39,26 @@ html,body{ height:100%; overflow:hidden; background:var(--bg);
 #weather-loc{ font-size: calc(17*var(--u)); color:var(--text-dim); margin-top: calc(6*var(--u));
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width: calc(240*var(--u)); }
 #topbar-right{ display:flex; align-items:center; gap: calc(10*var(--u)); }
+/* Now-playing widget (Spotify) — middle zone; .hidden (display:none) means
+   it takes zero width, so right-side buttons/clock never shift. */
+#np-zone{ display:flex; align-items:center; gap: calc(12*var(--u));
+  padding: calc(8*var(--u)) calc(16*var(--u)); border-radius:var(--radius);
+  background:rgba(255,255,255,.06); max-width: calc(560*var(--u)); }
+#np-art{ width: calc(44*var(--u)); height: calc(44*var(--u)); flex:0 0 auto;
+  border-radius:4px; background-size:cover; background-position:center;
+  background-color:rgba(255,255,255,.08); }
+#np-meta{ min-width:0; }
+#np-title{ font-size: calc(21*var(--u)); font-weight:600; color:#fff;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width: calc(380*var(--u)); }
+#np-artist{ font-size: calc(17*var(--u)); opacity:.72;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  max-width: calc(380*var(--u)); }
+#np-bar{ width: calc(44*var(--u)); height: calc(3*var(--u)); border-radius:2px;
+  background:rgba(255,255,255,.15); overflow:hidden; flex:0 0 auto;
+  align-self:flex-end; margin-bottom: calc(2*var(--u)); }
+#np-bar-fill{ height:100%; width:0%; background:#1DB954;
+  transition:width .4s linear; }
 .topbtn{ width: calc(52*var(--u)); height: calc(52*var(--u)); border-radius:50%;
   background:rgba(255,255,255,.07); display:grid; place-items:center; cursor:pointer; }
 .topbtn svg{ width: calc(30*var(--u)); height: calc(30*var(--u)); }

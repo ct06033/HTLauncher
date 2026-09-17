@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain, screen } = require("electron");
 const path = require("path");
 const svc = require("./services");
+const nowplaying = require("./nowplaying");
 const { openYouTube } = require("./youtube");
 const { openNetflix, openSpotify } = require("./edgeapps");
 
@@ -60,7 +61,12 @@ app.whenReady().then(() => {
   ipcMain.handle("svc:open-youtube", async () => openYouTube(() => win));
   ipcMain.handle("svc:open-netflix", async () => openNetflix(() => win));
   ipcMain.handle("svc:open-spotify", async () => openSpotify(() => win));
+  // Loopback bridge: the Spotify Edge extension POSTs track info here; we
+  // relay it to the renderer over "svc:event" (preload onEvent). start()
+  // swallows listen errors (e.g. port squatted) so boot never breaks.
+  nowplaying.start(47633, (ev) => { try { win?.webContents.send("svc:event", ev); } catch (e) {} });
   startUpdateLoop();
   if (app.isPackaged) loadUpdater()?.checkForUpdates().catch(() => {});
 });
+app.on("will-quit", () => nowplaying.stop());
 app.on("window-all-closed", () => app.quit());
