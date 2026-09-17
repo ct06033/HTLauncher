@@ -22,7 +22,7 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
   - *Webapps* — any URL, opened in Edge kiosk mode, favicon pulled automatically
   - *Commands* — anything you could type into `Win+R` (map drives, wake devices, launch scripts)
 - **Pages** — up to 3 extra tile pages beyond HOME (Kids, Games, …), flipped with Page Up / Page Down
-- **Weather** — current conditions + 5-day forecast (Open-Meteo, no API key) top-left; tap it for the popup
+- **Weather** — current conditions + 5-day forecast (Open-Meteo, no API key) top-left; tap it for the popup. Location comes automatically from your IP (city + region label, no Windows consent prompt). If the network blips, the widget keeps showing the last real reading and retries every 10 minutes — it never falls back to fake data in the shipped app
 - **Bluetooth panel** — radio toggle, see what's connected, connect/disconnect paired devices
 - **Wi-Fi panel** — status with signal bars, scan networks, connect with the on-screen keyboard
 - **Settings** — auto-start on login, temperature (°F/°C), time format (12H/24H), wallpaper (single image or random rotation from a folder with adjustable interval), and a key-remapping screen for every remote button

@@ -12,6 +12,7 @@ window.App = (() => {
     buildPages();
     showPage(0);
     Weather.onChange(renderWeather);
+    if (location.search.includes("mockwx")) Weather.setMock(true);  // dev-only: ?mockwx
     Weather.refresh(); setInterval(Weather.refresh, 10 * 60 * 1000);
     setupWallpaper();
     Store.onChange(() => { setupWallpaper(); });
