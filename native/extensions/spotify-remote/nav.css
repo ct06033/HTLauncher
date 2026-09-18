@@ -1,0 +1,15 @@
+/* HTLauncher in-page spatial-nav focus ring.
+ * Keep this file byte-identical with its copy in the OTHER extension dir
+ * (netflix-remote / spotify-remote) — --load-extension cannot share files
+ * between extensions, so each bundle carries its own copy. Edit both.
+ *
+ * Netflix/Spotify override :focus/:focus-visible heavily, so spatial.js marks
+ * the current element with [data-htl-focus] and we ring that instead. */
+[data-htl-focus] {
+  outline: 4px solid #fff !important;
+  outline-offset: -2px !important;
+}
+:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.85) !important;
+  outline-offset: -1px !important;
+}
