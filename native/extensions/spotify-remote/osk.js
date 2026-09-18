@@ -83,11 +83,24 @@
   /* Delete one char from the end (pure math when given get/set text hooks). */
   function backspaceField(el, opts) {
     opts = opts || {};
-    const get = opts.getValue || (() => el.value || "");
+    if (el && el.isContentEditable) {
+      // value= does nothing on contenteditable; delete via the editor command
+      try { el.focus(); D.execCommand("delete"); } catch (e) {}
+      try { el.dispatchEvent(new W.Event("input", { bubbles: true })); } catch (e) {}
+      return;
+    }
+    const get = opts.getValue || (() => (el && el.value) || "");
     const set = opts.setValue || ((text) => { el.value = text; });
-    set(get().slice(0, -1));
+    const next = get().slice(0, -1);
+    let desc = null;
+    try {
+      desc = Object.getOwnPropertyDescriptor(
+        (el && el.tagName === "TEXTAREA" ? W.HTMLTextAreaElement : W.HTMLInputElement).prototype, "value");
+    } catch (e) { /* headless stub without prototypes */ }
+    if (el && desc && desc.set) desc.set.call(el, next); else set(next);
     try {
       el.dispatchEvent(new W.Event("input", { bubbles: true }));
+      el.dispatchEvent(new W.Event("change", { bubbles: true }));
     } catch (e) {}
   }
 
@@ -184,12 +197,13 @@
     if (prev && target) prev.textContent = target.value != null ? target.value : target.textContent;
   }
 
-  function submitDone() {
-    const form = target && target.form;
+  function submitDone(f) {
+    // close() nulls `target`, so the field must come from the caller's capture.
+    const form = f && f.form;
     try { if (form && form.requestSubmit) { form.requestSubmit(); return; } } catch (e) {}
     try {
       const ev = new W.KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true, cancelable: true });
-      (target || D).dispatchEvent(ev);
+      (f || D).dispatchEvent(ev);
     } catch (e) {}
   }
 
