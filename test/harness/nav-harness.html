@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>HTL nav harness</title>
+<style>
+body{background:#141414;color:#fff;font-family:sans-serif;margin:0;padding:20px}
+.row{display:flex;gap:16px;margin-bottom:16px}
+button{width:160px;height:80px;background:#333;color:#fff;border:0;font-size:16px}
+input{height:60px;font-size:20px;width:300px}
+[data-htl-focus]{outline:4px solid #fff !important}
+</style></head>
+<body>
+<div class="row" id="r0">
+  <button id="b1">Tile 1</button><button id="b2">Tile 2</button><button id="b3">Tile 3</button>
+</div>
+<div class="row" id="r1">
+  <button id="b4">Tile 4</button><button id="b5">Tile 5</button><input id="search" type="search" placeholder="Search">
+</div>
+<div class="row" id="r2">
+  <button id="b6">Tile 6</button><button id="b7">Tile 7</button><button id="b8">Tile 8</button>
+</div>
+<script src="spatial.js"></script>
+<script src="osk.js"></script>
+<script>
+window.__harness = async function () {
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  function key(k) { window.dispatchEvent(new KeyboardEvent('keydown', {key:k, bubbles:true, cancelable:true})); }
+  function keyAt(el, k) { el.dispatchEvent(new KeyboardEvent('keydown', {key:k, bubbles:true, cancelable:true})); }
+  const act = () => { const a = document.activeElement; return a && a !== document.body ? a.id : null; };
+  const ring = () => { const a = document.activeElement; return a && a.hasAttribute && a.hasAttribute('data-htl-focus') ? a.id : null; };
+  const out = { steps: [] };
+
+  // 1) no focus: first ArrowRight seeds something
+  key('ArrowRight'); await wait(100);
+  out.steps.push({t:'seed', focus:act(), ring:ring()});
+
+  // 2) walk right
+  key('ArrowRight'); await wait(100); const f2 = act();
+  key('ArrowRight'); await wait(100); const f3 = act();
+  out.steps.push({t:'right', f2, f3});
+
+  // 3) walk down from f3 should land in row1 or row2 below it
+  key('ArrowDown'); await wait(100); const f4 = act();
+  out.steps.push({t:'down', f4});
+
+  // 3b) if landing on search auto-opened the OSK, close it cleanly now
+  if (window.__htlOskOpen) { key('Escape'); await wait(400); }
+  document.getElementById('b4').blur();
+
+  // 4) land on the search field via spatial from b5 (right of b5 is search)
+  document.getElementById('b5').focus();
+  key('ArrowRight'); await wait(200); const f5 = act();
+  out.steps.push({t:'to-search', f5, oskOpenAuto: window.__htlOskOpen});
+  // ensure OSK open state is deterministic for typing test
+  if (window.__htlOskOpen) { key('Escape'); await wait(400); }
+  const inp = document.getElementById('search'); inp.value = ''; inp.focus();
+  await wait(400);
+  keyAt(inp, 'Enter'); await wait(200);   // real keys target the focused field
+
+  // 5) if auto-open didn't fire via focus, OSK now open from Enter
+  const oskVisible = !!document.getElementById('htl-osk');
+  out.steps.push({t:'osk-open', open: window.__htlOskOpen, oskVisible});
+
+  // 6) press highlighted key (row1=letters; hi starts r1c0 -> 'q')
+  key('Enter'); await wait(150);
+  const typed1 = inp.value;
+  // arrow right + enter -> 'w'
+  key('ArrowRight'); await wait(80); key('Enter'); await wait(150);
+  const typed2 = inp.value;
+  out.steps.push({t:'type', typed1, typed2});
+
+  // 7) backspace
+  key('Backspace'); await wait(150);
+  const afterBksp = inp.value;
+  out.steps.push({t:'bksp', afterBksp});
+
+  // 8) escape closes
+  key('Escape'); await wait(400);
+  out.steps.push({t:'close', open: window.__htlOskOpen, host: !!document.getElementById('htl-osk')});
+
+  // 9) arrows after close go back to spatial (not caret): focus b4, arrow right
+  document.getElementById('b4').focus(); document.getElementById('search').blur();
+  await wait(400);
+  key('ArrowRight'); await wait(100);
+  out.steps.push({t:'respatial', focus: act()});
+  return JSON.stringify(out, null, 1);
+};
+</script>
+</body></html>
