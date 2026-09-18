@@ -35,8 +35,19 @@ function openYouTube(getShellWin) {
   });
 
   // remote semantics ported from HTPC-YT: Back = Escape inside YT; debounce dupes
+  // NOTE: the Escape we inject below ALSO flows through this handler — without
+  // the `injecting` flag our own debounce (fires <150ms after the Back key)
+  // preventDefaults it, which silently broke "Back inside a video" entirely.
+  let injecting = false;
+  const sendEscape = () => {
+    injecting = true;
+    ytWin.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
+    ytWin.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
+    setTimeout(() => { injecting = false; }, 400);
+  };
   ytWin.webContents.on("before-input-event", (event, input) => {
     if (input.type !== "keyDown") return;
+    if (injecting) return;                    // our own remapped Escape: page sees it
     const now = Date.now();
     if (now - lastKey < DEBOUNCE_MS) { event.preventDefault(); return; }
     lastKey = now;
@@ -46,15 +57,13 @@ function openYouTube(getShellWin) {
       const atRoot = /^https:\/\/www\.youtube\.com\/tv\/?(\?|#\/?)?$/.test(url);
       event.preventDefault();
       if (atRoot) { closeYouTube(getShellWin); return; }
-      ytWin.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
-      ytWin.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
+      sendEscape();
     }
   });
   ytWin.on("app-command", (e, cmd) => {
     if (cmd === "browser-backward") {
       e.preventDefault();
-      ytWin.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
-      ytWin.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
+      sendEscape();
     }
   });
   // Home key from the remote: jump straight back to the launcher
