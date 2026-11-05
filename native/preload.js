@@ -2,8 +2,6 @@
 const { contextBridge, ipcRenderer } = require("electron");
 const h = (ch) => (...args) => ipcRenderer.invoke(ch, ...args);
 contextBridge.exposeInMainWorld("tvnative", {
-  getVolume: h("svc:volume-get"),
-  ensureMaxVolume: h("svc:volume-set-max"),
   networkStatus: h("svc:net-status"),
   networkScan: h("svc:net-scan"),
   networkConnect: h("svc:net-connect"),

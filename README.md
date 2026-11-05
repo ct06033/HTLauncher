@@ -28,7 +28,6 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
 - **Wi-Fi panel** — status with signal bars, scan networks, connect with the on-screen keyboard
 - **Settings** — auto-start on login, temperature (°F/°C), time format (12H/24H), wallpaper (single image or random rotation from a folder with adjustable interval), and a key-remapping screen for every remote button
 - **Power menu** — Sleep / Shut down the PC / Exit
-- **Volume guard** — on every load it checks system volume is at 100% and unmuted (the remote controls volume; the app never fights it)
 - **Daily auto-updates** — checks GitHub Releases, downloads, and reinstalls itself
 
 ## TODO

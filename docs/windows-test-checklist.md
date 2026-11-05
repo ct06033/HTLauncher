@@ -31,7 +31,6 @@ Current reachability from this machine: ping OK, port 445 open (SMB), SSH/WinRM/
 
 ## What to verify (10-minute remote-only pass — unplug mouse/keyboard after step 1 if you can)
 - [ ] Boots fullscreen, no title bar, no taskbar visible
-- [ ] On load: system volume jumps to 100% + unmuted (there's a toast when it does)
 - [ ] Arrows move a clean highlight ring, one element at a time; weather top-left is NOT highlighted while you're elsewhere
 - [ ] Enter = OK, Delete/Backspace = Back, End = Menu, Home = returns to home, PgUp/PgDn flip pages, Alt+S sleeps
 - [ ] "+" box -> Add app: real Start Menu list, real icons appear after add; launching goes fullscreen; closing the app returns to TVShell, not the desktop

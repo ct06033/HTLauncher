@@ -36,68 +36,6 @@ function ps(script, timeoutMs = 20000) {
 const q = (s) => String(s).replace(/'/g, "''");          // SQL-style quote escape for PS literals
 const parse = (r, fb) => (r.ok && typeof r.data === "object" ? r.data : fb);
 
-/* ================= volume ================= */
-// Windows Core Audio via inline C# (MMDevice API).
-// GUIDs + vtable order verified against the mingw-w64 IDL (mmdeviceapi.idl,
-// endpointvolume.idl) AND tested live on the Windows box (2026-09-09).
-// IAudioEndpointVolume order: 1 RegisterCCN 2 UnregisterCCN 3 GetChannelCount
-// 4 SetMasterVolumeLevel 5 SetMasterVolumeLevelScalar 6 GetMasterVolumeLevel
-// 7 GetMasterVolumeLevelScalar 8-11 channel methods 12 SetMute 13 GetMute.
-// NOTE: REFGUID marshals as `ref Guid`, and the coclass needs [ComImport].
-const VOL_CS = `
-using System;using System.Runtime.InteropServices;
-[ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-public interface IAudioEndpointVolume {
-  void RegisterControlChangeNotify(IntPtr pNotify);
-  void UnregisterControlChangeNotify(IntPtr pNotify);
-  void GetChannelCount(out uint chanCount);
-  void SetMasterVolumeLevel(float db, ref Guid ctx);
-  void SetMasterVolumeLevelScalar(float lvl, ref Guid ctx);
-  void GetMasterVolumeLevel(out float db);
-  void GetMasterVolumeLevelScalar(out float lvl);
-  void SetChannelVolumeLevel(uint n, float db, ref Guid ctx);
-  void SetChannelVolumeLevelScalar(uint n, float lvl, ref Guid ctx);
-  void GetChannelVolumeLevel(uint n, out float db);
-  void GetChannelVolumeLevelScalar(uint n, out float lvl);
-  void SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, ref Guid ctx);
-  void GetMute([MarshalAs(UnmanagedType.Bool)] out bool mute);
-}
-[ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-public interface IMMDevice {
-  void Activate(ref Guid iid, uint ctx, IntPtr p, [MarshalAs(UnmanagedType.Interface)] out IAudioEndpointVolume pp);
-}
-[ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-public interface IMMEnum {
-  [return: MarshalAs(UnmanagedType.Interface)] object EnumAudioEndpoints(uint flow, uint stateMask);
-  [return: MarshalAs(UnmanagedType.Interface)] object GetDefaultAudioEndpoint(uint flow, uint role);
-}
-[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] public class MMDeviceEnumeratorCo { }
-public static class Vol {
-  static readonly string Q = ((char)34).ToString();   // avoid quote-escaping through PS layers
-  static IAudioEndpointVolume EP() {
-    var en = (IMMEnum)new MMDeviceEnumeratorCo();
-    var dev = (IMMDevice)en.GetDefaultAudioEndpoint(0u, 1u);
-    var iid = typeof(IAudioEndpointVolume).GUID; IAudioEndpointVolume v;
-    dev.Activate(ref iid, 1u, IntPtr.Zero, out v); return v;
-  }
-  public static string Get(){ var v=EP(); float l; bool m;
-    v.GetMasterVolumeLevelScalar(out l); v.GetMute(out m);
-    return "{"+Q+"level"+Q+":"+(int)Math.Round(l*100)+","+Q+"muted"+Q+":"+(m?"true":"false")+"}";
-  }
-  public static void SetMax(){ var v=EP(); var g=new Guid();
-    v.SetMute(false, ref g); v.SetMasterVolumeLevelScalar(1f, ref g); }
-}
-`;
-async function volumeGet() {
-  const r = await ps("Add-Type -TypeDefinition @'\n" + VOL_CS + "'@\n[Vol]::Get()");
-  if (r.ok && typeof r.data === "string") { try { return JSON.parse(r.data); } catch (e) {} }
-  return { level: 100, muted: false };              // fail open
-}
-async function volumeSetMax() {
-  await ps("Add-Type -TypeDefinition @'\n" + VOL_CS + "'@\n[Vol]::SetMax()");
-  return { ok: true };
-}
-
 /* ================= network ================= */
 async function netStatus() {
   const script = `
@@ -583,8 +521,6 @@ function registerIpc(ipcMain, getWindow, getUpdater, getUpdateDownloaded) {
     try { return await fn(...args); }
     catch (err) { return { ok: false, error: String(err && err.message || err) }; }
   });
-  h("svc:volume-get", volumeGet);
-  h("svc:volume-set-max", volumeSetMax);
   h("svc:net-status", netStatus);
   h("svc:net-scan", netScan);
   h("svc:net-connect", (ssid, pw) => netConnect(ssid || "", pw || ""));
@@ -639,7 +575,7 @@ function registerIpc(ipcMain, getWindow, getUpdater, getUpdateDownloaded) {
   });
 }
 
-module.exports = { registerIpc, ps, volumeGet, volumeSetMax, netStatus, netScan, netConnect,
+module.exports = { registerIpc, ps, netStatus, netScan, netConnect,
   btStatus, btKnown, btToggle, btConnect, btDisconnect, listStartMenu, launchApp, runCommand,
   openWebApp, faviconFor, appIconFor, power, setAutostart, pickWallpaper, listWallpaperDir,
   scanGames, gameIcon };

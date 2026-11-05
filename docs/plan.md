@@ -16,7 +16,6 @@
 | Never expose desktop | Shell owns focus; launched apps/webapps run fullscreen; Exit paths return to TV home, never Explorer |
 | No mouse/keyboard needed | Spatial focus navigation engine; every control reachable by arrow keys; OK=Enter, Back=Del, Home, Menu=End, PgUp/PgDn pages |
 | Remote key map | Default map per PRD, editable in Settings (capture-style remap UI) |
-| Volume 100%/unmute on load | Core Audio via PowerShell in main process (mock in web mode) |
 | On-screen keyboard | Grid OSK: letters, specials, shift, backspace, enter, minimize, submit |
 | Home screen | Top bar (BT, Wi-Fi, Settings, Power, clock/date, weather 5-day popup) + pages (HOME + up to 3) + 7-across scrollable tile grid with always-visible "+" box |
 | Add app | Enumerate Start Menu + AppsFolder via PowerShell; list picker |
@@ -36,7 +35,7 @@
 - **P2 Home UI:** top bar, weather, clock, tile grid, pages, wallpaper rotation.
 - **P3 Panels:** OSK, Wi-Fi, Bluetooth, Settings, Power.
 - **P4 Add/Launch:** add-app, add-command, add-webapp, tile context menu, fullscreen launch.
-- **P5 Native services:** IPC bridge for real Windows (volume, power, netsh, PnP, start-menu enum, autostart, updater).
+- **P5 Native services:** IPC bridge for real Windows (power, netsh, PnP, start-menu enum, autostart, updater).
 - **P6 Package:** NSIS installer build (cross-compiled with wine), hand-off checklist for your Windows test box.
 
 **Gate:** after P2–P4 you review the running web app in a browser and approve before P5–P6 start.

@@ -17,7 +17,6 @@ window.App = (() => {
     Weather.refresh(); setInterval(Weather.refresh, 10 * 60 * 1000);
     setupWallpaper();
     Store.onChange(() => { setupWallpaper(); });
-    checkVolume();
     pushHomeLayer();
     autoSetupGames();          // one-time: detect installed games -> GAMES page
     fillTileIcons();           // one-time+incremental: import real app/webapp icons
@@ -88,14 +87,6 @@ window.App = (() => {
     }
     if (changed && currentPage !== undefined) renderGrid();
     return changed;
-  }
-
-  async function checkVolume() {
-    const v = await Bridge.getVolume();
-    if (v.level < 100 || v.muted) {
-      await Bridge.ensureMaxVolume();
-      toast(v.muted ? "Volume was muted — set to 100%" : "Volume set to 100%");
-    }
   }
 
   /* =============== home layer =============== */

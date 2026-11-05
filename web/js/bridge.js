@@ -6,7 +6,6 @@
 
   /* ---------------- mock data ---------------- */
   const MOCK = {
-    volume: { level: 78, muted: false },
     network: {
       connected: { type: "wifi", ssid: "LivingRoom-5G", signal: 4, ip: "192.168.1.42" },
       scan: [
@@ -38,9 +37,6 @@
 
   const Mock = {
     backend: "mock",
-    async getVolume() { return { ...MOCK.volume }; },
-    async ensureMaxVolume() { MOCK.volume.level = 100; MOCK.volume.muted = false;
-      console.log("[mock] volume set 100%, unmuted"); return { ok: true }; },
     async networkStatus() { return { ...MOCK.network.connected }; },
     async networkScan() { await delay(500); return MOCK.network.scan.map(s => ({ ...s })); },
     async networkConnect(ssid) {
