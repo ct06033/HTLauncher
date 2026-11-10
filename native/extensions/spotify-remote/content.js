@@ -4,13 +4,18 @@
  * The Spotify web player is already fully keyboard-navigable (arrows + Tab +
  * Enter on its own focus model), so we don't re-implement focus movement —
  * we add launcher integration:
- *  - Delete/Backspace = "Back": walk the SPA history (Netflix-style); at the
- *    library root, close the tab => back to HTLauncher.
+ *  - Delete/Backspace/Escape = "Back": step out of the current view one
+ *    level; at the library root, close the tab => back to HTLauncher.
  *  - Home = always close (=> back to HTLauncher).
  *  - Space: the web player uses Space to play/pause but standard controls
  *    (buttons/links) activate on Enter — normalize so the remote OK plays
  *    whatever is under focus.
- * Typing in search: Backspace behaves normally. */
+ * Typing in search: Backspace behaves normally.
+ *
+ * Back engine is byte-compatible with netflix-remote/content.js except
+ * ROOT_RE/selectors: trusted close-button click -> history.back() ->
+ * home link -> close tab. (Synthetic Escape was useless: sites ignore
+ * isTrusted=false key events.) */
 const ROOT_RE = /^https:\/\/open\.spotify\.com\/(?:intl-[a-z-]+)?\/?(?:#.*)?$/;
 
 function closeToLauncher() {
@@ -20,6 +25,69 @@ function typingInField() {
   const t = document.activeElement;
   return t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
 }
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function visible(el) {
+  try {
+    const r = el.getBoundingClientRect();
+    if (r.width < 8 || r.height < 8) return false;
+    const cs = getComputedStyle(el);
+    return cs.visibility !== "hidden" && cs.display !== "none" &&
+           parseFloat(cs.opacity || "1") > 0.05;
+  } catch (e) { return false; }
+}
+/* Spotify-style: a real, visible "close/back" control inside an open overlay. */
+function findCloseBtn() {
+  const sel = [
+    '[role="dialog"] button[aria-label*="close" i]',
+    '[role="dialog"] button[aria-label*="back" i]',
+    '[aria-modal="true"] button[aria-label*="close" i]',
+    '[aria-modal="true"] button[aria-label*="back" i]',
+    'button[data-testid="close-button"]',
+    'button[aria-label="Close"]',
+  ].join(",");
+  let nodes = [];
+  try { nodes = document.querySelectorAll(sel); } catch (e) { return null; }
+  for (const n of nodes) if (visible(n)) return n;
+  return null;
+}
+function homeLink() {
+  let a = null;
+  try {
+    a = document.querySelector('a[href="' + location.origin + '/"]') ||
+        document.querySelector('nav a[href="/"]') ||
+        document.querySelector('a[href="/"]');
+  } catch (e) {}
+  return a && visible(a) ? a : null;
+}
+
+let backBusy = false;
+async function stepBack() {
+  if (backBusy) return;
+  backBusy = true;
+  try {
+    if (ROOT_RE.test(location.href)) { closeToLauncher(); return; }
+    const url0 = location.href, hist0 = history.length;
+    // 1) open overlay? click its real close button (trusted, works on React)
+    const btn = findCloseBtn();
+    if (btn) {
+      try { btn.click(); } catch (e) {}
+      await wait(500);
+      if (location.href !== url0 || !findCloseBtn()) return;
+    }
+    // 2) SPA pushState back
+    try { history.back(); } catch (e) {}
+    await wait(600);
+    if (location.href !== url0 || history.length < hist0) return;
+    // 3) fall back to a visible home link
+    const home = homeLink();
+    if (home) { try { home.click(); } catch (e) {} return; }
+    // 4) nothing on the page could take us back -> go to launcher
+    closeToLauncher();
+  } finally {
+    backBusy = false;
+  }
+}
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Home" && !e.repeat && !typingInField()) {
@@ -27,13 +95,12 @@ document.addEventListener("keydown", (e) => {
     closeToLauncher();
     return;
   }
-  if ((e.key === "Delete" || e.key === "Backspace") && !typingInField() && !e.repeat) {
+  if ((e.key === "Delete" || e.key === "Backspace" || e.key === "Escape") && !typingInField()) {
+    // OSK owns Back/Esc while it is open (osk.js handles+flags the event at
+    // window-capture before we see it in document-capture) — don't double-fire.
+    if (e.__htlHandled || window.__htlOskOpen) return;
     e.preventDefault(); e.stopPropagation();
-    if (ROOT_RE.test(location.href)) { closeToLauncher(); return; }
-    history.back();
-    // if history.back() can't move (deep SPA state), second press within 1.5s exits
-    const at = location.href;
-    setTimeout(() => { if (location.href === at) closeToLauncher(); }, 1500);
+    if (!e.repeat) stepBack();
   }
 }, true);
 

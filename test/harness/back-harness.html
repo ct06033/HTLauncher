@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>HTL back-step harness</title>
+<style>
+body{background:#141414;color:#fff;font-family:sans-serif;margin:0;padding:20px}
+button{width:160px;height:60px;background:#333;color:#fff;border:0;font-size:16px}
+dialog{position:fixed;top:100px;left:100px;width:400px;height:300px;background:#222;color:#fff;border:0}
+dialog[open]{display:block}
+</style></head>
+<body>
+<div id="app">
+  <button id="openModal">Open overlay</button>
+  <a id="homeLink" href="#/browse" style="display:inline-block;width:120px;height:40px;background:#444;color:#fff">Home</a>
+</div>
+<dialog id="modal">
+  <button id="modalClose" aria-label="Close">X</button>
+  <p>Detail overlay</p>
+</dialog>
+<script>
+/* Mock chrome.runtime so the real content.js loads unmodified. */
+window.__closed = false;
+window.chrome = { runtime: { sendMessage: (m) => { if (m && m.close) window.__closed = true; } } };
+/* Mock __htlOskOpen as osk.js defines it (closed by default). */
+window.__htlOskOpen = false;
+
+/* Site-like behaviour: overlay open/close + home link handled by the SPA. */
+const modal = document.getElementById('modal');
+document.getElementById('openModal').addEventListener('click', () => {
+  history.pushState({}, '', '#/title/123'); modal.setAttribute('open', '');
+});
+document.getElementById('modalClose').addEventListener('click', () => {
+  modal.removeAttribute('open');
+});
+document.getElementById('homeLink').addEventListener('click', (e) => {
+  e.preventDefault(); history.pushState({}, '', '#/browse');
+});
+</script>
+<script src="../fixtures/netflix-content.js"></script>
+<script>
+window.__harness = async function () {
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  function key(k) {
+    const e = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true });
+    document.dispatchEvent(e);
+    return e;
+  }
+  const out = { steps: [] };
+  async function back(t) {
+    window.__closed = false;
+    const before = location.href;
+    key('Escape');
+    await wait(1300); // stepBack waits 500 + 600ms
+    out.steps.push({ t, frag_before: before.split('#')[1] || before,
+                     frag_after: location.href.split('#')[1] || location.href,
+                     closed: window.__closed, modalOpen: modal.open });
+  }
+
+  // A: overlay open on title page -> Back closes the overlay only
+  history.pushState({}, '', '#/title/123'); modal.setAttribute('open', '');
+  await back('A overlay+title: expect modalOpen=false, closed=false');
+
+  // B: same title page, no overlay, no home nav yet -> history.back moves off #/title/123
+  await back('B title no overlay: expect frag changed, closed=false');
+
+  // C: at root (fixture ROOT_RE = /\/browse-root$) -> Back closes tab => launcher
+  history.pushState({}, '', '/browse-root');
+  await back('C root: expect closed=true');
+
+  // D: Home key always closes
+  window.__closed = false; history.pushState({}, '', '#/title/9');
+  key('Home'); await wait(200);
+  out.steps.push({ t: 'D Home: expect closed=true', closed: window.__closed });
+
+  // E: OSK open -> Escape must NOT step back/close (osk owns it)
+  window.__closed = false;
+  history.pushState({}, '', '#/title/9');
+  window.__htlOskOpen = true;
+  key('Escape'); await wait(1300);
+  window.__htlOskOpen = false;
+  out.steps.push({ t: 'E esc during OSK: expect closed=false, modal untouched', closed: window.__closed });
+
+  return JSON.stringify(out, null, 1);
+};
+</script>
+</body></html>

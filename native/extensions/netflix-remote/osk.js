@@ -259,6 +259,7 @@
       syncPreview();
     } else if (e.key === "Escape") {
       e.preventDefault(); e.stopPropagation(); e.__htlHandled = true;
+      e.__htlBackConsumed = true;   // tell content.js: Esc closed the OSK, don't also step back
       close();
     }
     /* printable chars (length 1, no ctrl/meta): not intercepted — the focused

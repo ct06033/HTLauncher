@@ -33,6 +33,7 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
 ## TODO
 
 - ~~TV friendly Netflix and spotify support~~ → Netflix built-in v0.4.1, Spotify built-in v0.6.0
+- ~~Netflix/Spotify: Esc/Back dead~~ → v0.6.6 real back-stepping (close-button click → history → home → launcher)
 - Now playing widget for spotify
 - ~~auto find and add games to a game tab~~ → done in v0.5.0 (Steam/Epic/GOG auto-scan with banner art)
 - ???
