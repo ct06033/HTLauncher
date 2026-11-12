@@ -20,6 +20,19 @@ const fs = require("fs");
 const path = require("path");
 
 const CSC = "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe";
+const CSC_DIR = path.dirname(CSC);
+// UIA refs live in the WPF subfolder of the framework dir, not csc's
+// default lib path — pass absolute /r: so the compile works everywhere.
+const REFS = ["WindowsBase.dll", "UIAutomationClient.dll", "UIAutomationTypes.dll"];
+function refArgs() {
+  return REFS.map((r) => {
+    for (const d of [CSC_DIR, path.join(CSC_DIR, "WPF")]) {
+      const p = path.join(d, r);
+      if (fs.existsSync(p)) return "/r:" + p;
+    }
+    return "/r:" + r;  // let csc try its own resolution
+  });
+}
 let helper = null;
 let helperPid = 0;
 
@@ -48,25 +61,28 @@ function build(exe, src, cb) {
       fs.statSync(src).mtimeMs > (fs.existsSync(exe) ? fs.statSync(exe).mtimeMs : Infinity);
   } catch (e) {}
   if (!stale && fs.existsSync(exe)) return cb(null, "cached");
-  execFile(CSC, ["/nologo", "/optimize", "/out:" + exe,
-    "/r:WindowsBase.dll", "/r:UIAutomationClient.dll", "/r:UIAutomationTypes.dll", src],
+  execFile(CSC, ["/nologo", "/optimize", "/out:" + exe].concat(refArgs()).concat([src]),
     { timeout: 60000, windowsHide: true },
     (err) => cb(err ? ("csc: " + String(err.message || err)) : null, "built"));
 }
 
 function start() {
   if (helper && !helper.killed) return;
-  if (process.platform !== "win32" || !fs.existsSync(CSC)) return;
+  const dbg = (s) => { try { fs.appendFileSync(path.join(process.env.LOCALAPPDATA || ".", "HTLauncher", "tvhk-boot.log"), new Date().toISOString().slice(11, 19) + " " + s + "\n"); } catch (e) {} };
+  if (process.platform !== "win32" || !fs.existsSync(CSC)) { dbg("skip: not win32 or no csc at " + CSC); return; }
   const { exe, src } = helperPaths();
+  dbg("src=" + src + " exists=" + fs.existsSync(src) + " exe=" + exe);
   build(exe, src, (err, how) => {
-    if (err) { console.warn("[tvhk] compile failed:", err); return; }
+    if (err) { dbg("COMPILE_FAIL " + err); console.warn("[tvhk] compile failed:", err); return; }
     try {
       helper = spawn(exe, [], { detached: true, stdio: "ignore", windowsHide: true });
       helperPid = helper.pid || 0;
-      helper.on("exit", () => { helper = null; });
+      helper.on("error", (e) => dbg("SPAWN_ERR " + e.message));
+      helper.on("exit", (code) => { helper = null; dbg("HELPER_EXIT code=" + code); });
       helper.unref();
+      dbg("started (" + how + ") pid=" + helperPid);
       console.log("[tvhk] helper started (" + how + ")");
-    } catch (e) { console.warn("[tvhk] spawn failed:", e.message); }
+    } catch (e) { dbg("SPAWN_THROW " + e.message); console.warn("[tvhk] spawn failed:", e.message); }
   });
 }
 
