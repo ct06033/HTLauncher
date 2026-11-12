@@ -14,11 +14,11 @@ const { chromium } = require("/home/caspar/.hermes/hermes-agent/node_modules/pla
   // assert
   const steps = JSON.parse(res).steps;
   const ok =
+    steps.length === 4 &&
     steps[0].modalOpen === false && steps[0].closed === false &&   // A: overlay closed only
     steps[1].frag_before !== steps[1].frag_after && steps[1].closed === false && // B: history.back moved
-    steps[2].closed === true &&                                     // C: root -> launcher
-    steps[3].closed === true &&                                     // D: Home -> launcher
-    steps[4].closed === false;                                      // E: OSK owns Esc
+    steps[2].closed === true &&                                     // C: root -> launcher exit
+    steps[3].closed === false;                                      // D: OSK owns Backspace
   console.log(ok ? "ALL_PASS" : "FAIL");
   await browser.close();
   process.exit(ok ? 0 : 1);

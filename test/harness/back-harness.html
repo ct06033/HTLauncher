@@ -47,7 +47,7 @@ window.__harness = async function () {
   async function back(t) {
     window.__closed = false;
     const before = location.href;
-    key('Escape');
+    key('Backspace');   // v0.6.9 contract: extension owns Backspace/Delete only
     await wait(1300); // stepBack waits 500 + 600ms
     out.steps.push({ t, frag_before: before.split('#')[1] || before,
                      frag_after: location.href.split('#')[1] || location.href,
@@ -65,18 +65,13 @@ window.__harness = async function () {
   history.pushState({}, '', '/browse-root');
   await back('C root: expect closed=true');
 
-  // D: Home key always closes
-  window.__closed = false; history.pushState({}, '', '#/title/9');
-  key('Home'); await wait(200);
-  out.steps.push({ t: 'D Home: expect closed=true', closed: window.__closed });
-
-  // E: OSK open -> Escape must NOT step back/close (osk owns it)
+  // D: OSK open -> Backspace must NOT step back/close (osk owns it)
   window.__closed = false;
   history.pushState({}, '', '#/title/9');
   window.__htlOskOpen = true;
-  key('Escape'); await wait(1300);
+  key('Backspace'); await wait(1300);
   window.__htlOskOpen = false;
-  out.steps.push({ t: 'E esc during OSK: expect closed=false, modal untouched', closed: window.__closed });
+  out.steps.push({ t: 'D bksp during OSK: expect closed=false, modal untouched', closed: window.__closed });
 
   return JSON.stringify(out, null, 1);
 };

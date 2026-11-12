@@ -5,6 +5,7 @@ const svc = require("./services");
 const nowplaying = require("./nowplaying");
 const { openYouTube } = require("./youtube");
 const { openNetflix, openSpotify } = require("./edgeapps");
+const tvhk = require("./tvhk");
 
 let win = null;
 let updater = null;
@@ -65,8 +66,9 @@ app.whenReady().then(() => {
   // relay it to the renderer over "svc:event" (preload onEvent). start()
   // swallows listen errors (e.g. port squatted) so boot never breaks.
   nowplaying.start(47633, (ev) => { try { win?.webContents.send("svc:event", ev); } catch (e) {} });
+  tvhk.start();   // Escape/Home remap for the Edge TV views (see native/tvhk.cs)
   startUpdateLoop();
   if (app.isPackaged) loadUpdater()?.checkForUpdates().catch(() => {});
 });
-app.on("will-quit", () => nowplaying.stop());
+app.on("will-quit", () => { nowplaying.stop(); tvhk.stop(); });
 app.on("window-all-closed", () => app.quit());

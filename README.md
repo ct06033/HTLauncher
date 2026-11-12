@@ -33,7 +33,7 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
 ## TODO
 
 - ~~TV friendly Netflix and spotify support~~ → Netflix built-in v0.4.1, Spotify built-in v0.6.0
-- ~~Netflix/Spotify: Esc/Back dead~~ → v0.6.6 real back-stepping (close-button click → history → home → launcher); v0.6.7 un-crashes the Edge profile before launch; v0.6.8 also clears disabled-extension state from Secure Preferences and force-quits zombie Edge processes for the TV-view profile before spawning (Chromium profile-singleton was swallowing our --load-extension flag) (Crashed exit_type put Edge in extension safe mode — content scripts silently never injected after any kill/hard shutdown)
+- ~~Netflix/Spotify: Esc/Back dead~~ → v0.6.9: while a Netflix/Spotify TV window is in front, a system key hook remaps **Esc → browser back** (twice on the same screen = exit to launcher) and **Home → exit to launcher**. Backspace passes straight through so the sites' own screen-back keeps working. OS-level input only — no browser profile/policy changes, nothing for AV to flag. (Crashed exit_type put Edge in extension safe mode — content scripts silently never injected after any kill/hard shutdown)
 - Now playing widget for spotify
 - ~~auto find and add games to a game tab~~ → done in v0.5.0 (Steam/Epic/GOG auto-scan with banner art)
 - ???
@@ -44,7 +44,7 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
 |---|---|---|
 | D-pad | Arrow keys | Move selection |
 | OK / Select | Enter | Activate |
-| Back | Delete (or Esc) | Close current panel / menu |
+| Back | Backspace (panels) · Esc (TV apps) | Close current panel / menu; in Netflix/Spotify Esc steps back, twice on the same screen exits to the launcher |
 | Home | Home key | Jump back to the home screen from anywhere |
 | Menu / ⋮ / Cog | End key | Context menu (add tile, tile options) |
 | Page +/- | Page Up / Page Down | Switch tile pages |

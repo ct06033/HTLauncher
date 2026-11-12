@@ -89,16 +89,14 @@ async function stepBack() {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Home" && !e.repeat) {
-    e.preventDefault(); e.stopPropagation();
-    closeToLauncher();
-    return;
-  }
-  if ((e.key === "Delete" || e.key === "Backspace" || e.key === "Escape") && !typingInField()) {
-    // OSK owns Back/Esc while it is open (osk.js handles+flags the event at
-    // window-capture before we see it in document-capture) — don't double-fire.
+  // NOTE: Escape and Home are remapped at the OS level by the tvhk helper
+  // (native/tvhk.cs) while this window is foreground — they never reach the
+  // page as plain keys. The extension only owns Backspace/Delete (in-site
+  // back: closes overlays one level, exits to launcher at browse root).
+  if (e.key === "Delete" || e.key === "Backspace") {
+    if (typingInField() || e.repeat) return;
     if (e.__htlHandled || window.__htlOskOpen) return;
     e.preventDefault(); e.stopPropagation();
-    if (!e.repeat) stepBack();
+    stepBack();
   }
 }, true);
