@@ -33,7 +33,7 @@ Point it at Netflix, Prime, Plex, whatever lives in your Start Menu — or any w
 ## TODO
 
 - ~~TV friendly Netflix and spotify support~~ → Netflix built-in v0.4.1, Spotify built-in v0.6.0
-- ~~Netflix/Spotify: Esc/Back dead~~ → v0.6.6 real back-stepping (close-button click → history → home → launcher); v0.6.7 also un-crashes the Edge profile before launch (Crashed exit_type put Edge in extension safe mode — content scripts silently never injected after any kill/hard shutdown)
+- ~~Netflix/Spotify: Esc/Back dead~~ → v0.6.6 real back-stepping (close-button click → history → home → launcher); v0.6.7 un-crashes the Edge profile before launch; v0.6.8 also clears disabled-extension state from Secure Preferences and force-quits zombie Edge processes for the TV-view profile before spawning (Chromium profile-singleton was swallowing our --load-extension flag) (Crashed exit_type put Edge in extension safe mode — content scripts silently never injected after any kill/hard shutdown)
 - Now playing widget for spotify
 - ~~auto find and add games to a game tab~~ → done in v0.5.0 (Steam/Epic/GOG auto-scan with banner art)
 - ???

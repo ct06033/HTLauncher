@@ -56,7 +56,8 @@ function sanitizeEdgeProfile(profile) {
     const pref = path.join(
       process.env.LOCALAPPDATA || ".", "HTLauncher", profile, "Default", "Preferences");
     if (!fs.existsSync(pref)) return;
-    const j = JSON.parse(fs.readFileSync(pref, "utf8"));
+    // tolerate a UTF-8 BOM (some writers add one; JSON.parse would throw on it)
+    const j = JSON.parse(fs.readFileSync(pref, "utf8").replace(/^\uFEFF/, ""));
     let dirty = false;
     if (j.profile && j.profile.exit_type === "Crashed") {
       j.profile.exit_type = "Normal"; dirty = true;
@@ -65,11 +66,54 @@ function sanitizeEdgeProfile(profile) {
       delete j.extensions.safemode; delete j.extensions.safe; dirty = true;
     }
     if (dirty) fs.writeFileSync(pref, JSON.stringify(j));
+    // Secure Preferences carries the *persistent* extension state: after a
+    // safe-mode episode our own --load-extension entry gets recorded with
+    // disable_reasons set, and Edge keeps honouring that disable even after
+    // the crash flag is cleared. Drop any HTLauncher-path extension entries
+    // there (Edge re-registers them fresh from --load-extension on launch).
+    const sec = path.join(path.dirname(pref), "Secure Preferences");
+    if (fs.existsSync(sec)) {
+      const sj = JSON.parse(fs.readFileSync(sec, "utf8").replace(/^\uFEFF/, ""));
+      const st = sj.extensions && sj.extensions.settings;
+      let sdirty = false;
+      if (sj.extensions && sj.extensions.safemode) { delete sj.extensions.safemode; sdirty = true; }
+      if (st) {
+        for (const k of Object.keys(st)) {
+          const p2 = st[k] && st[k].path;
+          if (typeof p2 === "string" && p2.includes("HTLauncher")) { delete st[k]; sdirty = true; }
+        }
+      }
+      if (sdirty) fs.writeFileSync(sec, JSON.stringify(sj));
+    }
   } catch (e) { /* never block launch on profile surgery */ }
+}
+
+/* Chromium's profile singleton is the sneaky one: if ANY msedge process is
+ * still alive for our dedicated profile (e.g. mid-teardown after a taskkill
+ * from the installer, or a previously hung session), the new spawn just
+ * forwards its URL to the dying browser and ALL of our flags — including
+ * --load-extension — are silently dropped. So before spawning, force-kill
+ * msedge processes whose command line references this profile and wait for
+ * them to actually die. Best effort: never block longer than ~6s. */
+function killEdgeForProfile(profile) {
+  const esc = profile.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const ps =
+    "$m='HTLauncher\\\\" + esc + "';" +
+    "Get-CimInstance Win32_Process -Filter \"Name='msedge.exe'\" | Where-Object { $_.CommandLine -match $m } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue };" +
+    "$deadline=(Get-Date).AddSeconds(4);" +
+    "while((Get-Date) -lt $deadline){" +
+    "$n=@(Get-CimInstance Win32_Process -Filter \"Name='msedge.exe'\" | Where-Object { $_.CommandLine -match $m }).Count;" +
+    "if($n -eq 0){break}; Start-Sleep -Milliseconds 250} exit 0";
+  try {
+    const { execFileSync } = require("child_process");
+    execFileSync("powershell.exe", ["-NoProfile", "-Command", ps],
+      { timeout: 6000, windowsHide: true, stdio: "ignore" });
+  } catch (e) { /* best effort */ }
 }
 
 async function openEdgeApp({ url, ext, profile, coverTaskbar }) {
   sanitizeEdgeProfile(profile);
+  killEdgeForProfile(profile);
   const exe = findEdge() || "msedge.exe";
   const args = [
     "--app=" + url,
