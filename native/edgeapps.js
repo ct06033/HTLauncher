@@ -42,7 +42,34 @@ function extDir(name) {
   return null;
 }
 
+/* Un-crash the Edge profile before launch.
+ * When Edge is killed (our /S install taskkill, sleep/power-off mid-session,
+ * or a real crash) it marks the profile exit_type:"Crashed". On the NEXT
+ * launch Edge enters extension *safe mode* and refuses to inject
+ * --load-extension content scripts — silently killing all our remote
+ * semantics (Back/Esc/Home inside Netflix/Spotify) until the flag is cleared.
+ * We rewrite exit_type back to "Normal" and drop any safemode state before
+ * spawning. Only touches our own dedicated profiles; Edge must not be
+ * running (it rewrites the file on clean exit anyway). */
+function sanitizeEdgeProfile(profile) {
+  try {
+    const pref = path.join(
+      process.env.LOCALAPPDATA || ".", "HTLauncher", profile, "Default", "Preferences");
+    if (!fs.existsSync(pref)) return;
+    const j = JSON.parse(fs.readFileSync(pref, "utf8"));
+    let dirty = false;
+    if (j.profile && j.profile.exit_type === "Crashed") {
+      j.profile.exit_type = "Normal"; dirty = true;
+    }
+    if (j.extensions && (j.extensions.safemode || j.extensions.safe)) {
+      delete j.extensions.safemode; delete j.extensions.safe; dirty = true;
+    }
+    if (dirty) fs.writeFileSync(pref, JSON.stringify(j));
+  } catch (e) { /* never block launch on profile surgery */ }
+}
+
 async function openEdgeApp({ url, ext, profile, coverTaskbar }) {
+  sanitizeEdgeProfile(profile);
   const exe = findEdge() || "msedge.exe";
   const args = [
     "--app=" + url,
